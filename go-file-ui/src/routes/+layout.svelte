@@ -25,7 +25,7 @@
 			</nav>
 		{/if}
 	</header>
-	<div class="h-full">
+	<div class="h-full mb-2">
 		<slot /> <!-- This renders the child page content -->
 	</div>
 	<footer class="text-center text-stone-400 mx-32 border-t">

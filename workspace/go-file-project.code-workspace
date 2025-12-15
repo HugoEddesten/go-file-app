@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../go-file-api"
+		},
+		{
+			"path": "../go-file-ui-react"
+		}
+	],
+	"settings": {}
+}

@@ -40,6 +40,7 @@ func UploadFile() fiber.Handler {
 func DownloadFile() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userId := c.Locals("userId").(int)
+		action := c.Query("action", "send")
 
 		fileKeyEncoded := c.Params("*")
 		fileKey, err := url.QueryUnescape(fileKeyEncoded)
@@ -53,9 +54,18 @@ func DownloadFile() fiber.Handler {
 			return fiber.NewError(fiber.StatusNotFound, "File not found")
 		}
 
+		if action == "download" {
+			return c.Download(path)
+		}
 		return c.SendFile(path)
 	}
 }
+
+// func GetMetadata() fiber.Handler {
+// 	return func(c *fiber.Ctx) error {
+
+// 	}
+// }
 
 func ListFiles() fiber.Handler {
 	return func(c *fiber.Ctx) error {
