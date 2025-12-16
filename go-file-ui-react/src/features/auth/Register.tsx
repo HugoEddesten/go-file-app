@@ -11,29 +11,39 @@ import {
 import { Form, FormDescription } from "../../components/ui/form";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
-import { login } from "./api/login";
+import { register } from "./api/register";
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 
-
-const loginSchema = z.object({
-  email: z.string().min(1, { error: "Required" }),
+const registerSchema = z.object({
+  email: z.string().min(5, { error: "Invalid email" }),
   password: z
     .string()
-    .min(1, { error: "Required" }),
+    .min(8, { error: "Password needs to be at least 8 characters long" }),
 });
 
-export const Login = () => {
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
+export const Register = () => {
+  const form = useForm<z.infer<typeof registerSchema>>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
       email: "",
       password: "",
     },
   });
 
-  const handleSubmit = async (values: z.infer<typeof loginSchema>) => {
+  useEffect(() => {
+    const subscription = form.watch(() => {
+      if (form.formState.errors.root) {
+        form.clearErrors("root");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  const handleSubmit = async (values: z.infer<typeof registerSchema>) => {
     try {
-      await login(values);
+      await register(values);
     } catch (err: any) {
       const message = err?.response?.data ?? "Something went wrong";
 
@@ -48,7 +58,7 @@ export const Login = () => {
     <div className="flex w-full h-full items-center justify-center">
       <Card className="p-4 w-xl flex justify-center">
         <CardTitle className="text-center text-2xl">
-          Log in to you account
+          Register an account
         </CardTitle>
         <Form {...form}>
           <form
@@ -93,14 +103,16 @@ export const Login = () => {
                 )}
               />
             </FieldGroup>
-            <FormDescription>Dont have an account? <Link to="/register" className="underline">Register here</Link></FormDescription>
+            <FormDescription>
+              Already have an account? <Link to="/login" className="underline">Log in here</Link>
+            </FormDescription>
             <div className="grid grid-rows-2 justify-items-center">
               {form.formState.errors.root && (
                 <FormDescription className="text-destructive">
                   {form.formState.errors.root.message}
                 </FormDescription>
               )}
-              <Button className="row-start-2 w-fit" type="submit">Log in</Button>
+              <Button className="row-start-2 w-fit" type="submit">Register</Button>
             </div>
           </form>
         </Form>

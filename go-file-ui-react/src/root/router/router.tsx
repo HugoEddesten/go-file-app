@@ -1,8 +1,9 @@
-import { createBrowserRouter, RouterProvider, type RouteObject } from "react-router-dom"
+import { createBrowserRouter, RouterProvider } from "react-router-dom"
 import { PublicRoute } from "./components/PublicRoute"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 import { Login } from "../../features/auth/Login"
 import { Home } from "../../features/home/Home"
+import { Register } from "../../features/auth/Register"
 
 
 export const router = createBrowserRouter([
@@ -10,7 +11,7 @@ export const router = createBrowserRouter([
     element: <PublicRoute />,
     children: [
       { path: "/login", element: <Login /> },
-      { path: "/register", element: <div>register</div> }
+      { path: "/register", element: <Register /> }
     ]
   },
   {

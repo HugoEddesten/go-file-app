@@ -15,6 +15,10 @@ func Register(repo *users.Repository, jwtService *jwt.JWTService) fiber.Handler 
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
 		}
 
+		if len(body.Email) < 5 || len(body.Password) < 5 {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
+		}
+
 		hashed, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 		if err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError, "Could not hash password")
@@ -49,7 +53,8 @@ func Login(repo *users.Repository, jwtService *jwt.JWTService) fiber.Handler {
 		}
 
 		user, err := repo.FindByEmail(body.Email)
-		if err != nil {
+
+		if err != nil || user == nil {
 			return fiber.NewError(fiber.StatusUnauthorized, "Invalid email or password")
 		}
 
