@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -49,21 +49,21 @@
   --radius: 0.625rem;
 
   /* Base */
-  --background: oklch(95% 0.03 115);        /* E5F2C9 */
-  --foreground: oklch(20% 0.01 320);        /* 1E1A1D */
+  --background: oklch(95% 0.03 115); /* E5F2C9 */
+  --foreground: oklch(20% 0.01 320); /* 1E1A1D */
 
   /* Surfaces */
-  --card: oklch(92% 0.025 110);             /* softened background */
+  --card: oklch(92% 0.025 110); /* softened background */
   --card-foreground: oklch(20% 0.01 320);
 
   --popover: oklch(92% 0.025 110);
   --popover-foreground: oklch(20% 0.01 320);
 
   /* Brand */
-  --primary: oklch(55% 0.06 55);             /* 8C705F */
+  --primary: oklch(55% 0.06 55); /* 8C705F */
   --primary-foreground: oklch(97% 0.01 110);
 
-  --secondary: oklch(78% 0.035 85);          /* B2A38A */
+  --secondary: oklch(78% 0.035 85); /* B2A38A */
   --secondary-foreground: oklch(25% 0.01 320);
 
   /* Muted */
@@ -71,7 +71,7 @@
   --muted-foreground: oklch(45% 0.015 320);
 
   /* Accent */
-  --accent: oklch(65% 0.055 45);             /* 7F534B */
+  --accent: oklch(65% 0.055 45); /* 7F534B */
   --accent-foreground: oklch(97% 0.01 110);
 
   /* Destructive */
@@ -99,11 +99,15 @@
   --sidebar-accent-foreground: oklch(25% 0.01 320);
   --sidebar-border: oklch(82% 0.015 95);
   --sidebar-ring: oklch(55% 0.06 55);
+
+  /* Shadow */
+  --shadow-inset-sm: inset 0 1px 2px oklch(0% 0 0 / 0.08);
+  --shadow-inset-md: inset 0 2px 4px oklch(0% 0 0 / 0.12);
 }
 
 .dark {
-  --background: oklch(18% 0.015 330);        /* 1F0318 */
-  --foreground: oklch(92% 0.02 110);         /* E5F2C9 */
+  --background: oklch(18% 0.015 330); /* 1F0318 */
+  --foreground: oklch(92% 0.02 110); /* E5F2C9 */
 
   --card: oklch(22% 0.015 330);
   --card-foreground: oklch(92% 0.02 110);
@@ -111,16 +115,16 @@
   --popover: oklch(22% 0.015 330);
   --popover-foreground: oklch(92% 0.02 110);
 
-  --primary: oklch(65% 0.06 55);              /* lighter 8C705F */
+  --primary: oklch(65% 0.06 55); /* lighter 8C705F */
   --primary-foreground: oklch(18% 0.015 330);
 
-  --secondary: oklch(35% 0.03 85);            /* dark B2A38A */
+  --secondary: oklch(35% 0.03 85); /* dark B2A38A */
   --secondary-foreground: oklch(92% 0.02 110);
 
   --muted: oklch(28% 0.02 330);
   --muted-foreground: oklch(65% 0.02 110);
 
-  --accent: oklch(55% 0.055 45);              /* 7F534B */
+  --accent: oklch(55% 0.055 45); /* 7F534B */
   --accent-foreground: oklch(95% 0.01 110);
 
   --destructive: oklch(50% 0.18 30);
@@ -144,6 +148,10 @@
   --sidebar-accent-foreground: oklch(92% 0.02 110);
   --sidebar-border: oklch(30% 0.015 330);
   --sidebar-ring: oklch(65% 0.06 55);
+
+  /* Shadow */
+  --shadow-inset-sm: inset 0 1px 2px oklch(0% 0 0 / 0.35);
+  --shadow-inset-md: inset 0 2px 4px oklch(0% 0 0 / 0.45);
 }
 
 @layer base {
@@ -152,42 +160,52 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    font-family: "Inter", sans-serif;
+  }
+}
+
+@layer utilities {
+  .shadow-inset-sm {
+    box-shadow: var(--shadow-inset-sm);
+  }
+
+  .shadow-inset-md {
+    box-shadow: var(--shadow-inset-md);
   }
 }
 
 h1 {
-  font-size: 2.25rem;   /* 36px */
+  font-size: 2.25rem; /* 36px */
   font-weight: 700;
-  line-height: 2.5rem;  /* 40px */
+  line-height: 2.5rem; /* 40px */
 }
 
 h2 {
-  font-size: 1.875rem;  /* 30px */
+  font-size: 1.875rem; /* 30px */
   font-weight: 700;
   line-height: 2.25rem; /* 36px */
 }
 
 h3 {
-  font-size: 1.5rem;    /* 24px */
+  font-size: 1.5rem; /* 24px */
   font-weight: 600;
-  line-height: 2rem;    /* 32px */
+  line-height: 2rem; /* 32px */
 }
 
 h4 {
-  font-size: 1.25rem;   /* 20px */
+  font-size: 1.25rem; /* 20px */
   font-weight: 600;
   line-height: 1.75rem; /* 28px */
 }
 
 h5 {
-  font-size: 1.125rem;  /* 18px */
+  font-size: 1.125rem; /* 18px */
   font-weight: 500;
-  line-height: 1.5rem;  /* 24px */
+  line-height: 1.5rem; /* 24px */
 }
 
 h6 {
-  font-size: 1rem;      /* 16px */
+  font-size: 1rem; /* 16px */
   font-weight: 500;
   line-height: 1.25rem; /* 20px */
 }

@@ -3,13 +3,16 @@ package auth
 import (
 	"go-file-api/internal/jwt"
 	"go-file-api/internal/users"
+	"go-file-api/internal/vault"
 
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func Register(repo *users.Repository, jwtService *jwt.JWTService) fiber.Handler {
+func Register(userRepo *users.Repository, vaultRepo *vault.Repository, jwtService *jwt.JWTService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		ctx := c.UserContext()
+
 		body := new(AuthRequest)
 		if err := c.BodyParser(body); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
@@ -24,9 +27,14 @@ func Register(repo *users.Repository, jwtService *jwt.JWTService) fiber.Handler 
 			return fiber.NewError(fiber.StatusInternalServerError, "Could not hash password")
 		}
 
-		userId, err := repo.Create(body.Email, string(hashed))
+		userId, err := userRepo.Create(body.Email, string(hashed))
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Email already exists")
+		}
+
+		_, err = vaultRepo.Create(ctx, "my_vault", userId)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Could not create vault")
 		}
 
 		token, _ := jwtService.GenerateToken(userId, body.Email)

@@ -1,9 +1,4 @@
-import {
-  CopyCheck,
-  Delete,
-  DownloadCloud,
-  File,
-} from "lucide-react";
+import { CopyCheck, Delete, DownloadCloud, File } from "lucide-react";
 import type { FileData } from "../Home";
 import { cn } from "../../../lib/utils";
 import {
@@ -14,15 +9,31 @@ import {
   ContextMenuTrigger,
 } from "../../../components/ui/context-menu";
 
-export const FileMinimized = ({ file }: { file: FileData }) => {
+export const FileMinimized = ({
+  file,
+  selected = false,
+  onClick,
+}: {
+  file: FileData;
+  selected?: boolean;
+  onClick?: (e: React.MouseEvent) => void;
+}) => {
   const handleDownload = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL}files/download${file.Key}?action=download`
-  }
-  
+    window.location.href = `${import.meta.env.VITE_API_URL}files/download${
+      file.Key
+    }?action=download`;
+  };
+
   return (
-    <div className="w-18 h-18">
+    <div
+      className="w-18 h-18"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(e);
+      }}
+    >
       <ContextMenu>
-        <ContextMenuTrigger>
+        <ContextMenuTrigger className={cn(selected && "text-primary")}>
           <div className="flex justify-center w-full">
             <File />
           </div>

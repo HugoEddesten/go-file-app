@@ -30,7 +30,7 @@ export const DragProvider = ({
 
     const handleDragEnter = (e: DragEvent) => {
       dragCounter.current++;
-
+      e.stopPropagation();
       if (dragCounter.current === 1) {
         setIsOver(true);
         onEnter?.(e);
@@ -39,7 +39,7 @@ export const DragProvider = ({
 
     const handleDragLeave = (e: DragEvent) => {
       dragCounter.current--;
-
+      e.stopPropagation();
       if (dragCounter.current === 0) {
         setIsOver(false);
         onLeave?.(e);
@@ -47,6 +47,8 @@ export const DragProvider = ({
     };
 
     const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
       dragCounter.current = 0;
       setIsOver(false);
       onDrop?.(e);

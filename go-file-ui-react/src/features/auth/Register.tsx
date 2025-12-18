@@ -14,6 +14,7 @@ import { Button } from "../../components/ui/button";
 import { register } from "./api/register";
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
+import { FormField } from "../../components/form/FormField";
 
 const registerSchema = z.object({
   email: z.string().min(5, { error: "Invalid email" }),
@@ -69,42 +70,29 @@ export const Register = () => {
               <Controller
                 control={form.control}
                 name="email"
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="username">Email</FieldLabel>
-                    <Input
-                      autoComplete="off"
-                      id="username"
-                      aria-invalid={fieldState.invalid}
-                      {...field}
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
+                render={(state) => (
+                  <FormField 
+                    label="Email"
+                    {...state}
+                  />
                 )}
               />
               <Controller
                 control={form.control}
                 name="password"
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="password">Password</FieldLabel>
-                    <Input
-                      id="password"
-                      type="password"
-                      aria-invalid={fieldState.invalid}
-                      {...field}
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
+                render={(state) => (
+                  <FormField 
+                    label="Password"
+                    {...state}
+                  />
                 )}
               />
             </FieldGroup>
             <FormDescription>
-              Already have an account? <Link to="/login" className="underline">Log in here</Link>
+              Already have an account?{" "}
+              <Link to="/login" className="underline">
+                Log in here
+              </Link>
             </FormDescription>
             <div className="grid grid-rows-2 justify-items-center">
               {form.formState.errors.root && (
@@ -112,7 +100,9 @@ export const Register = () => {
                   {form.formState.errors.root.message}
                 </FormDescription>
               )}
-              <Button className="row-start-2 w-fit" type="submit">Register</Button>
+              <Button className="row-start-2 w-fit" type="submit">
+                Register
+              </Button>
             </div>
           </form>
         </Form>

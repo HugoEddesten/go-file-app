@@ -1,8 +1,6 @@
 package jwt
 
-import (
-	"github.com/gofiber/fiber/v2"
-)
+import "github.com/gofiber/fiber/v2"
 
 func Protected(jwtService *JWTService) fiber.Handler {
 	return func(c *fiber.Ctx) error {

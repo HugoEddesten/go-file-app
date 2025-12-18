@@ -5,6 +5,8 @@ import (
 	"go-file-api/internal/db"
 	"go-file-api/internal/files"
 	"go-file-api/internal/jwt"
+	"go-file-api/internal/users"
+	"go-file-api/internal/vault"
 	"log"
 	"os"
 	"time"
@@ -23,6 +25,9 @@ func main() {
 	jwtService := jwt.New("my_secret_key_123", "go-file-api", time.Hour*24)
 	jwtMiddleware := jwt.Protected(jwtService)
 
+	vaultRepo := vault.Repository{DB: database.Pool}
+	userRepo := users.Repository{DB: database.Pool}
+
 	app := fiber.New()
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "http://localhost:5173",
@@ -31,8 +36,9 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	auth.RegisterRoutes(app, database.Pool, jwtService)
-	files.RegisterRoutes(app, jwtMiddleware)
+	auth.RegisterRoutes(app, &userRepo, &vaultRepo, jwtService)
+	files.RegisterRoutes(app, &vaultRepo, jwtMiddleware)
+	vault.RegisterRoutes(app, &userRepo, &vaultRepo, jwtMiddleware)
 
 	os.MkdirAll("uploads", os.ModePerm)
 

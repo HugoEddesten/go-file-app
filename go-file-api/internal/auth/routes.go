@@ -3,15 +3,18 @@ package auth
 import (
 	"go-file-api/internal/jwt"
 	"go-file-api/internal/users"
+	"go-file-api/internal/vault"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func RegisterRoutes(app *fiber.App, pool *pgxpool.Pool, jwtService *jwt.JWTService) {
-	repo := &users.Repository{DB: pool}
-
-	app.Post("/auth/register", Register(repo, jwtService))
-	app.Post("/auth/login", Login(repo, jwtService))
-	app.Get("/auth/me", Me(repo, jwtService))
+func RegisterRoutes(
+	app *fiber.App,
+	userRepo *users.Repository,
+	vaultRepo *vault.Repository,
+	jwtService *jwt.JWTService,
+) {
+	app.Post("/auth/register", Register(userRepo, vaultRepo, jwtService))
+	app.Post("/auth/login", Login(userRepo, jwtService))
+	app.Get("/auth/me", Me(userRepo, jwtService))
 }

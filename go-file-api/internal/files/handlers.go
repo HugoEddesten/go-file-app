@@ -2,6 +2,7 @@ package files
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 
 func UploadFile() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userId := c.Locals("userId").(int)
+		vaultId := c.Locals("vaultId").(int)
 		fileKey := c.Params("*")
 
 		file, err := c.FormFile("file")
@@ -20,7 +21,7 @@ func UploadFile() fiber.Handler {
 			return err
 		}
 
-		path := fmt.Sprintf("./uploads/%d/%s", userId, fileKey)
+		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
 		os.MkdirAll(path, os.ModePerm)
 
 		savePath := filepath.Join(path, file.Filename)
@@ -37,9 +38,50 @@ func UploadFile() fiber.Handler {
 	}
 }
 
+func CreateFile() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		vaultId := c.Locals("vaultId").(int)
+		parentDirKey := c.Params("*")
+		ext := c.Query("ext")
+
+		baseDir := fmt.Sprintf("./uploads/%d/%s", vaultId, parentDirKey)
+
+		if err := os.MkdirAll(baseDir, os.ModePerm); err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		const baseName = "new"
+
+		fullPath, name, err := nextAvailablePath(baseDir, baseName, ext)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		if ext == "" {
+			if err := os.MkdirAll(fullPath, os.ModePerm); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError)
+			}
+			return c.SendStatus(fiber.StatusCreated)
+		} else {
+			file, err := os.Create(fullPath)
+			if err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError)
+			}
+			defer file.Close()
+		}
+
+		clientFileKey := getClientKeyFromFilePath(fullPath)
+
+		return c.Status(fiber.StatusCreated).JSON(FileResponse{
+			Name: name,
+			Key:  clientFileKey,
+		})
+	}
+}
+
 func DownloadFile() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userId := c.Locals("userId").(int)
+		vaultId := c.Locals("vaultId").(int)
 		action := c.Query("action", "send")
 
 		fileKeyEncoded := c.Params("*")
@@ -48,11 +90,19 @@ func DownloadFile() fiber.Handler {
 			return fiber.NewError(fiber.StatusBadRequest, "invalid filename encoding")
 		}
 
-		path := fmt.Sprintf("./uploads/%d/%s", userId, fileKey)
+		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
 
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			return fiber.NewError(fiber.StatusNotFound, "File not found")
+		file, err := os.Open(path)
+		if err != nil {
+			return fiber.NewError(fiber.StatusNotFound, "file not found")
 		}
+		defer file.Close()
+
+		buffer := make([]byte, 512)
+		_, _ = file.Read(buffer)
+		contentType := http.DetectContentType(buffer)
+
+		c.Set("Content-Type", contentType)
 
 		if action == "download" {
 			return c.Download(path)
@@ -61,15 +111,41 @@ func DownloadFile() fiber.Handler {
 	}
 }
 
-// func GetMetadata() fiber.Handler {
-// 	return func(c *fiber.Ctx) error {
+func GetMetadata() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		vaultId := c.Locals("vaultId").(int)
 
-// 	}
-// }
+		fileKeyEncoded := c.Params("*")
+		fileKey, _ := url.QueryUnescape(fileKeyEncoded)
+		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
+
+		file, err := os.Open(path)
+		if err != nil {
+			return fiber.ErrNotFound
+		}
+		defer file.Close()
+
+		stat, _ := file.Stat()
+
+		buffer := make([]byte, 512)
+		file.Read(buffer)
+		mimeType := http.DetectContentType(buffer)
+
+		meta := FileMetadata{
+			Name:        stat.Name(),
+			MimeType:    mimeType,
+			Size:        stat.Size(),
+			Editable:    strings.HasPrefix(mimeType, "text/"),
+			Previewable: isPreviewable(mimeType),
+		}
+
+		return c.JSON(meta)
+	}
+}
 
 func ListFiles() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userId := c.Locals("userId").(int)
+		vaultId := c.Locals("vaultId").(int)
 
 		fileKeyEncoded := c.Params("*")
 		fileKey, err := url.QueryUnescape(fileKeyEncoded)
@@ -77,7 +153,7 @@ func ListFiles() fiber.Handler {
 			return fiber.NewError(fiber.StatusBadRequest, "invalid filename encoding")
 		}
 
-		path := fmt.Sprintf("./uploads/%d/%s", userId, fileKey)
+		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
 
 		files := make([]FileResponse, 0)
 
@@ -99,14 +175,14 @@ func ListFiles() fiber.Handler {
 
 func SearchFiles() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userId := c.Locals("userId").(int)
+		vaultId := c.Locals("vaultId").(int)
 		search := c.Query("q")
 		if search == "" {
 			return c.Status(fiber.StatusBadRequest).SendString("Missing query parameter 'q'")
 		}
 		var matches []string
 
-		root := fmt.Sprintf("./uploads/%d", userId)
+		root := fmt.Sprintf("./uploads/%d", vaultId)
 		filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return err
