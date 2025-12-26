@@ -34,9 +34,20 @@ type UserInVault struct {
 	Path  string    `json:"path"`
 }
 
-type VaultUserRequest struct {
-	Role VaultRole `json:"role"`
-	Path string    `json:"path"`
+type VaultUserCreateRequest struct {
+	Role  VaultRole `json:"role"`
+	Path  string    `json:"path"`
+	Email string    `json:"email"`
+}
+
+type VaultUserUpdateRequest struct {
+	Role        VaultRole `json:"role"`
+	Path        string    `json:"path"`
+	VaultUserId int       `json:"vaultUserId"`
+}
+
+type PathBodyValidation struct {
+	Path string `json:"path"`
 }
 
 type VaultRole int

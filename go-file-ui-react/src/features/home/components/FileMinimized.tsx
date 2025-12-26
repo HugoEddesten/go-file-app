@@ -13,15 +13,17 @@ export const FileMinimized = ({
   file,
   selected = false,
   onClick,
+  vaultId,
 }: {
   file: FileData;
   selected?: boolean;
   onClick?: (e: React.MouseEvent) => void;
+  vaultId: number;
 }) => {
   const handleDownload = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL}files/download${
-      file.Key
-    }?action=download`;
+    window.location.href = `${
+      import.meta.env.VITE_API_URL
+    }files/${vaultId}/download/${file.Key}?action=download`;
   };
 
   return (

@@ -18,6 +18,6 @@ func RegisterRoutes(
 	group.Post("create", CreateVault(vaultRepo))
 
 	group.Get("get-vault/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleViewer), GetVault(vaultRepo))
-	group.Post("assign-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), AssignUserToVault(vaultRepo))
+	group.Post("assign-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), AssignUserToVault(vaultRepo, userRepo))
 	group.Put("update-vault-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), UpdateVaultUser(vaultRepo))
 }

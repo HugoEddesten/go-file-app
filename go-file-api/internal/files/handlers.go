@@ -146,8 +146,8 @@ func GetMetadata() fiber.Handler {
 func ListFiles() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := c.Locals("vaultId").(int)
-
 		fileKeyEncoded := c.Params("*")
+
 		fileKey, err := url.QueryUnescape(fileKeyEncoded)
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "invalid filename encoding")
@@ -163,9 +163,17 @@ func ListFiles() fiber.Handler {
 		}
 
 		for _, entry := range entries {
+			var key string
+			if fileKey == "" {
+				key = fmt.Sprintf("/%s", entry.Name())
+
+			} else {
+				key = fmt.Sprintf("/%s/%s", fileKey, entry.Name())
+			}
+
 			files = append(files, FileResponse{
 				Name: entry.Name(),
-				Key:  fmt.Sprintf("%s/%s", fileKey, entry.Name()),
+				Key:  key,
 			})
 		}
 

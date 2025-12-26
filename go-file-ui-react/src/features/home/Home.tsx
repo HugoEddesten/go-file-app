@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Card } from "../../components/ui/card";
-import { Spinner } from "../../components/ui/spinner";
 import { DragContext } from "../../contexts/DragContext";
 import { DragProvider } from "../../contexts/DragProvider";
 import { cn } from "../../lib/utils";
@@ -15,6 +14,11 @@ import { Button } from "../../components/ui/button";
 import { FileLibraryMenuBar } from "./components/FileLibraryMenuBar";
 import { MaximizedSpinner } from "../../components/ui/maximizedSpinner";
 import { FilePreview } from "./components/FilePreview";
+import {
+  useLocation,
+  useOutletContext,
+} from "react-router-dom";
+import { DirectoryList } from "./components/DirectoryList";
 
 export type FileData = {
   Name: string;
@@ -22,11 +26,15 @@ export type FileData = {
 };
 
 export const Home = () => {
-  const [isDragging, setIsDragging] = useState(false);
-  const [currentDir, setCurrentDir] = useState("/");
-  const [selectedFile, setSelectedFile] = useState<string | undefined>();
-  const { data, isLoading } = useFiles({ path: currentDir });
+  const { dir } = useLocation().state;
 
+  const [isDragging, setIsDragging] = useState(false);
+  const [currentDir, setCurrentDir] = useState<string>(dir);
+  const [selectedFile, setSelectedFile] = useState<string | undefined>();
+
+  const vaultId = useOutletContext() as number;
+  const { data, isLoading } = useFiles({ vaultId: vaultId, path: currentDir });
+  console.log(data)
   const handleDrop = async (e: DragEvent) => {
     setIsDragging(false);
     const files = Array.from(e.dataTransfer?.files ?? []);
@@ -36,18 +44,19 @@ export const Home = () => {
 
     formData.append("file", files?.[0]);
 
-    await api.post(`/files/upload/${currentDir}`, formData);
+    await api.post(`/files/${vaultId}/upload/${currentDir}`, formData);
     queryClient.invalidateQueries({ queryKey: ["files"] });
   };
 
   const handleGoBack = () => {
-    const pathParts = currentDir.slice(1).split("/");
-    const newPath = "/" + pathParts.slice(0, pathParts.length - 1).join("/");
+    const pathParts = currentDir.replace(dir, "").split("/");
+
+    const newPath = dir + pathParts.slice(0, pathParts.length - 1).join("/");
     setCurrentDir(newPath);
   };
 
   const files = data ?? [];
-
+  console.log(files)
   return (
     <div className="flex flex-col h-full">
       <div className="grid grid-cols-1 md:grid-cols-8 h-full gap-4 p-4">
@@ -79,7 +88,7 @@ export const Home = () => {
                 <Input readOnly value={currentDir} />
               </div>
               <div className="flex flex-col h-full gap-2">
-                <FileLibraryMenuBar currentDir={currentDir} />
+                <FileLibraryMenuBar currentDir={currentDir} vaultId={vaultId}/>
 
                 <Card
                   className={cn(
@@ -99,12 +108,14 @@ export const Home = () => {
                               file={f}
                               selected={selectedFile === f.Key}
                               onClick={() => setSelectedFile(f.Key)}
+                              vaultId={vaultId}
                             />
                           ) : (
                             <FolderMinimized
                               onDoubleClick={() => setCurrentDir(f.Key)}
                               key={f.Key}
                               file={f}
+                              vaultId={vaultId}
                             />
                           )}
                         </div>
@@ -116,7 +127,11 @@ export const Home = () => {
             </DragProvider>
           </DragContext>
         </Card>
-        {selectedFile && <FilePreview fileKey={selectedFile} />}
+        {selectedFile ? (
+          <FilePreview fileKey={selectedFile} vaultId={vaultId} />
+        ) : (
+          <DirectoryList vaultId={vaultId} setCurrentDir={setCurrentDir}/>
+        )}
       </div>
     </div>
   );

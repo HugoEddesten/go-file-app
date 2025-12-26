@@ -6,25 +6,36 @@ import { MaximizedSpinner } from "../../../components/ui/maximizedSpinner";
 import { getRenderer, putPrefixOnByteCount } from "../../../helpers/renderer";
 import { useFileDetails } from "../api/getFile";
 
-export const FilePreview = ({ fileKey }: { fileKey: string }) => {
+export const FilePreview = ({
+  fileKey,
+  vaultId,
+}: {
+  fileKey: string;
+  vaultId: number;
+}) => {
   const fileUrl = `${
     import.meta.env.VITE_API_URL
-  }files/download/${encodeURIComponent(fileKey)}`;
+  }files/${vaultId}/download${fileKey}`;
 
   const { data: meta, isLoading } = useFileDetails({ path: fileKey });
-  console.log(meta)
+  console.log(meta);
   const renderPreview = () => {
     if (!meta) return;
 
     switch (getRenderer(meta.mimeType)) {
       case "image":
-        return <img src={fileUrl} className="object-scale-down max-h-full rounded-md"/>;
+        return (
+          <img
+            src={fileUrl}
+            className="object-scale-down max-h-full rounded-md"
+          />
+        );
       case "pdf":
         return <iframe src={fileUrl} className="h-full rounded-md" />;
       case "text":
-        // return <TextPreview path={fileUrl} />;
+      // return <TextPreview path={fileUrl} />;
       case "video":
-        return <iframe src={fileUrl} className="h-full rounded-md"/>
+        return <iframe src={fileUrl} className="h-full rounded-md" />;
       default:
         return <NoPreview />;
     }
@@ -39,28 +50,27 @@ export const FilePreview = ({ fileKey }: { fileKey: string }) => {
           <FieldGroup className="gap-2">
             <Field>
               <Label>Name</Label>
-              <Input value={meta?.name}/>
+              <Input value={meta?.name} />
             </Field>
             <Field>
               <Label>Type</Label>
-              <Input readOnly value={meta?.mimeType}/>
+              <Input readOnly value={meta?.mimeType} />
             </Field>
             <Field>
               <Label>Size</Label>
-              <Input readOnly value={putPrefixOnByteCount(meta?.size ?? 0)?.stringResult}/>
+              <Input
+                readOnly
+                value={putPrefixOnByteCount(meta?.size ?? 0)?.stringResult}
+              />
             </Field>
           </FieldGroup>
           {renderPreview()}
-
         </div>
-
       )}
     </Card>
   );
 };
 
 const NoPreview = () => {
-  return (
-    <h3 className="text-center">Preview not availible</h3>
-  )
-}
+  return <h3 className="text-center">Preview not availible</h3>;
+};

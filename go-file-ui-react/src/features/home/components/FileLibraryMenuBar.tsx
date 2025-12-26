@@ -9,8 +9,8 @@ import {
 import { useCreateFile } from "../api/addFile";
 import { toast } from "sonner";
 
-export const FileLibraryMenuBar = ({ currentDir }: { currentDir: string }) => {
-  const { mutateAsync } = useCreateFile({ path: currentDir });
+export const FileLibraryMenuBar = ({ currentDir, vaultId }: { currentDir: string, vaultId: number }) => {
+  const { mutateAsync } = useCreateFile({ path: currentDir, vaultId: vaultId });
 
   const handleNewFolderClick = async () => {
     try {

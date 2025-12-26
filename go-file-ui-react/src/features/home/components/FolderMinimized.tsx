@@ -1,4 +1,4 @@
-import { Delete, DownloadCloud, Folder } from "lucide-react";
+import { Delete, DownloadCloud, Folder, Share } from "lucide-react";
 import type { FileData } from "../Home";
 import { cn } from "../../../lib/utils";
 import {
@@ -12,20 +12,36 @@ import { DragProvider } from "../../../contexts/DragProvider";
 import { useState } from "react";
 import { api } from "../../../lib/api";
 import { queryClient } from "../../../lib/queryClient";
+import { ShareVaultModal } from "./ShareVaultModal";
+import { all } from "axios";
+import { useVaults } from "../../vaults/api/getVaults";
+import { MaximizedSpinner } from "../../../components/ui/maximizedSpinner";
+import { FolderUser } from "../../../components/ui/FolderUser";
 
 export const FolderMinimized = ({
   file,
   onDoubleClick,
+  vaultId,
 }: {
   file: FileData;
   onDoubleClick: () => void;
+  vaultId: number;
 }) => {
   const [isOver, setIsOver] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  const { data: vaults } = useVaults({});
+  
+  if (!vaults) {
+    return <MaximizedSpinner />
+  }
+  
+  const currentVault = vaults.find(v => v.id === vaultId)
 
   const handleDownload = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL}files/download${
-      file.Key
-    }?action=download`;
+    window.location.href = `${
+      import.meta.env.VITE_API_URL
+    }files/${vaultId}/download${file.Key}?action=download`;
   };
 
   const handleDrop = async (e: DragEvent) => {
@@ -53,8 +69,12 @@ export const FolderMinimized = ({
             onDoubleClick={onDoubleClick}
             className={cn(isOver && "text-primary")}
           >
-            <div className="flex justify-center w-full">
-              <Folder />
+            <div className="flex justify-center w-full bg-card">
+              {currentVault?.users.some(vu => vu.path === file.Key) ? (
+                <FolderUser />
+              ) : (
+                <Folder />
+              )}
             </div>
             <p
               className={cn(
@@ -77,9 +97,22 @@ export const FolderMinimized = ({
                 <Delete className="text-primary" />
               </ContextMenuShortcut>
             </ContextMenuItem>
+            <ContextMenuItem onClick={() => setShareModalOpen(true)}>
+              <div className="flex w-full justify-between">
+                Share folder
+                <ContextMenuShortcut>
+                  <Share className="text-primary" />
+                </ContextMenuShortcut>
+              </div>
+            </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
       </DragProvider>
+      <ShareVaultModal
+        defaultPath={file.Key}
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+      />
     </div>
   );
 };

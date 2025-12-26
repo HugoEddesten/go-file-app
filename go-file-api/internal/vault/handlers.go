@@ -1,6 +1,10 @@
 package vault
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"go-file-api/internal/users"
+
+	"github.com/gofiber/fiber/v2"
+)
 
 func GetVault(vaultRepo *Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -44,19 +48,23 @@ func CreateVault(vaultRepo *Repository) fiber.Handler {
 	}
 }
 
-func AssignUserToVault(vaultRepo *Repository) fiber.Handler {
+func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
 
-		userId := c.Locals("userId").(int)
 		vaultId := c.Locals("vaultId").(int)
 
-		body := new(VaultUserRequest)
+		body := new(VaultUserCreateRequest)
 		if err := c.BodyParser(body); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
 		}
 
-		_, err := vaultRepo.AddUserToVault(ctx, vaultId, userId, body.Path, body.Role)
+		user, err := usersRepo.FindByEmail(body.Email)
+		if err != nil {
+			return fiber.NewError(fiber.StatusNotFound, "No user with provided email found")
+		}
+
+		_, err = vaultRepo.AddUserToVault(ctx, vaultId, user.Id, body.Path, body.Role)
 		if err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError)
 		}
@@ -68,17 +76,15 @@ func AssignUserToVault(vaultRepo *Repository) fiber.Handler {
 func UpdateVaultUser(vaultRepo *Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
-
-		vaultId := c.Locals("vaultId").(int)
 		path := c.Locals("requestedVaultPath").(string)
 
-		body := new(VaultUserRequest)
+		body := new(VaultUserUpdateRequest)
 		if err := c.BodyParser(body); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
 		}
 
 		vaultUser := VaultUser{
-			Id:   vaultId,
+			Id:   body.VaultUserId,
 			Path: path,
 			Role: body.Role,
 		}
