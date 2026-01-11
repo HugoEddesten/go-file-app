@@ -1,10 +1,10 @@
 export type Vault = {
   id: number;
   name: string;
-  users: UserVault[];
+  users: VaultUser[];
 };
 
-export type UserVault = {
+export type VaultUser = {
   id: number;
   email: string;
   role: VaultUserRole;
