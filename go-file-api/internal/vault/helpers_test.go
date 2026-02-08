@@ -27,8 +27,7 @@ func TestResolveVaultPath_Wildcard(t *testing.T) {
 	assert.True(t, shouldValidate)
 }
 
-// BUG: Query param resolution doesn't work - c.Params("*", "/") returns "/" preventing fallthrough
-func TestResolveVaultPath_QueryParam_CurrentlyBroken(t *testing.T) {
+func TestResolveVaultPath_QueryParam(t *testing.T) {
 	app := fiber.New()
 	var resolvedPath string
 	var shouldValidate bool
@@ -42,14 +41,12 @@ func TestResolveVaultPath_QueryParam_CurrentlyBroken(t *testing.T) {
 	req := httptest.NewRequest("GET", "/vault/1/list?path=/uploads/image.png", nil)
 	app.Test(req)
 
-	// BUG: Currently returns "/" because c.Params("*", "/") returns default "/"
-	// even when there's no wildcard, so it never checks query params
-	assert.Equal(t, "/", resolvedPath)
+	// Should resolve from query param
+	assert.Equal(t, "/uploads/image.png", resolvedPath)
 	assert.True(t, shouldValidate)
 }
 
-// BUG: JSON body resolution doesn't work - c.Params("*", "/") returns "/" preventing fallthrough
-func TestResolveVaultPath_JSONBody_CurrentlyBroken(t *testing.T) {
+func TestResolveVaultPath_JSONBody(t *testing.T) {
 	app := fiber.New()
 	var resolvedPath string
 	var shouldValidate bool
@@ -66,8 +63,8 @@ func TestResolveVaultPath_JSONBody_CurrentlyBroken(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	app.Test(req)
 
-	// BUG: Currently returns "/" for same reason as query param test
-	assert.Equal(t, "/", resolvedPath)
+	// Should resolve from JSON body
+	assert.Equal(t, "/uploads/newfile.txt", resolvedPath)
 	assert.True(t, shouldValidate)
 }
 
@@ -85,8 +82,8 @@ func TestResolveVaultPath_NoPath(t *testing.T) {
 	app.Test(req)
 
 	assert.Equal(t, "/", resolvedPath)
-	// BUG: shouldValidate is true because c.Params("*", "/") returns "/"
-	assert.True(t, shouldValidate)
+	// No path provided anywhere, so shouldValidate is false
+	assert.False(t, shouldValidate)
 }
 
 func TestPathAllowed_RootAccess(t *testing.T) {
@@ -102,7 +99,7 @@ func TestPathAllowed_SubdirectoryAccess(t *testing.T) {
 
 func TestPathAllowed_DeniedPaths(t *testing.T) {
 	assert.False(t, pathAllowed("/documents", "/admin"))
-	assert.False(t, pathAllowed("/documents", "/doc"))  // Not a subdirectory
+	assert.False(t, pathAllowed("/documents", "/doc")) // Not a subdirectory
 	assert.False(t, pathAllowed("/doc", "/documents")) // Similar prefix but not allowed
 }
 

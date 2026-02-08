@@ -1,7 +1,9 @@
 package vault
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"testing"
 
@@ -323,14 +325,11 @@ func (s *VaultAccessMiddlewareTestSuite) TestPathTraversalAttempt_ShouldDeny() {
 	assert.Equal(s.T(), fiber.StatusForbidden, resp.StatusCode)
 }
 
-// TODO: This test reveals a bug in ResolveVaultPath - query/body param resolution doesn't work
-// because c.Params("*", "/") returns "/" even when there's no wildcard, preventing fallthrough.
-// This means routes without wildcards always validate against "/" as the requested path.
-func (s *VaultAccessMiddlewareTestSuite) TestRouteWithoutWildcard_ValidatesAgainstRoot() {
+func (s *VaultAccessMiddlewareTestSuite) TestRouteWithoutWildcard_NoPathValidation() {
 	s.app = fiber.New()
 	middleware := s.createMiddleware(VaultRoleEditor)
 
-	// Route without wildcard - resolves to path="/" shouldValidate=true
+	// Route without wildcard and no path query/body - shouldValidate=false
 	s.app.Get("/vault/:vaultId/list",
 		func(c *fiber.Ctx) error {
 			c.Locals("userId", 1)
@@ -342,15 +341,15 @@ func (s *VaultAccessMiddlewareTestSuite) TestRouteWithoutWildcard_ValidatesAgain
 		},
 	)
 
-	// User has full vault access (path="/")
+	// User restricted to /uploads (but path validation won't happen)
 	s.mockRepo.AddVaultUser(10, 1, VaultUser{
 		VaultId: 10,
 		UserId:  1,
 		Role:    VaultRoleEditor,
-		Path:    "/", // Full access needed for routes without wildcards
+		Path:    "/uploads",
 	})
 
-	// Works because pathAllowed("/", "/") returns true
+	// Works because shouldValidate=false, so path restriction is not checked
 	req := httptest.NewRequest("GET", "/vault/10/list", nil)
 	resp, err := s.app.Test(req)
 
@@ -358,7 +357,70 @@ func (s *VaultAccessMiddlewareTestSuite) TestRouteWithoutWildcard_ValidatesAgain
 	assert.Equal(s.T(), fiber.StatusOK, resp.StatusCode)
 }
 
-// Removed - see TestNoPathValidation_WhenRouteHasNoWildcard for explanation of bug
+func (s *VaultAccessMiddlewareTestSuite) TestPathViaQueryParam_ShouldWork() {
+	s.app = fiber.New()
+	middleware := s.createMiddleware(VaultRoleEditor)
+
+	// Route without wildcard - should resolve path from query param
+	s.app.Get("/vault/:vaultId/list",
+		func(c *fiber.Ctx) error {
+			c.Locals("userId", 1)
+			return c.Next()
+		},
+		middleware,
+		func(c *fiber.Ctx) error {
+			return c.JSON(fiber.Map{"success": true})
+		},
+	)
+
+	s.mockRepo.AddVaultUser(10, 1, VaultUser{
+		VaultId: 10,
+		UserId:  1,
+		Role:    VaultRoleEditor,
+		Path:    "/uploads",
+	})
+
+	// Query param path matches allowed path
+	req := httptest.NewRequest("GET", "/vault/10/list?path=/uploads/image.png", nil)
+	resp, err := s.app.Test(req)
+
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), fiber.StatusOK, resp.StatusCode)
+}
+
+func (s *VaultAccessMiddlewareTestSuite) TestPathViaJSONBody_ShouldWork() {
+	s.app = fiber.New()
+	middleware := s.createMiddleware(VaultRoleEditor)
+
+	// Route without wildcard - should resolve path from JSON body
+	s.app.Post("/vault/:vaultId/create",
+		func(c *fiber.Ctx) error {
+			c.Locals("userId", 1)
+			return c.Next()
+		},
+		middleware,
+		func(c *fiber.Ctx) error {
+			return c.JSON(fiber.Map{"success": true})
+		},
+	)
+
+	s.mockRepo.AddVaultUser(10, 1, VaultUser{
+		VaultId: 10,
+		UserId:  1,
+		Role:    VaultRoleEditor,
+		Path:    "/uploads",
+	})
+
+	body := map[string]string{"path": "/uploads/newfile.txt"}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest("POST", "/vault/10/create", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := s.app.Test(req)
+
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), fiber.StatusOK, resp.StatusCode)
+}
 
 func (s *VaultAccessMiddlewareTestSuite) TestExactPathMatch_ShouldAllow() {
 	s.app = fiber.New()
