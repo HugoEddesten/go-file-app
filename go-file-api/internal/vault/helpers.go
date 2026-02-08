@@ -53,11 +53,10 @@ func ResolveVaultId(c *fiber.Ctx) (int, error) {
 }
 
 func cleanPath(p string) string {
-	p = path.Clean("/" + p)
-	if strings.Contains(p, "..") {
-		return ""
-	}
-	return p
+	// path.Clean normalizes the path and resolves ".." sequences
+	// This prevents path traversal by converting paths like "/documents/../admin"
+	// into "/admin", which will then be checked against user permissions
+	return path.Clean("/" + p)
 }
 
 func pathAllowed(allowed, requested string) bool {
