@@ -12,11 +12,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// VaultUserGetter interface that matches what VaultAccessMiddleware needs
-type VaultUserGetter interface {
-	GetVaultUsers(ctx context.Context, vaultId, userId int) ([]VaultUser, error)
-}
-
 // MockVaultRepository implements VaultUserGetter for testing
 type MockVaultRepository struct {
 	vaultUsers map[int]map[int][]VaultUser // map[vaultId][userId][]VaultUser
@@ -58,7 +53,8 @@ func (s *VaultAccessMiddlewareTestSuite) SetupTest() {
 func (s *VaultAccessMiddlewareTestSuite) setupRoute(requiredRole VaultRole, pathInRoute string) {
 	s.app = fiber.New()
 
-	middleware := s.createMiddleware(requiredRole)
+	// Use the actual production VaultAccessMiddleware with our mock
+	middleware := VaultAccessMiddleware(s.mockRepo, requiredRole)
 
 	s.app.Get(pathInRoute,
 		func(c *fiber.Ctx) error {
@@ -75,48 +71,6 @@ func (s *VaultAccessMiddlewareTestSuite) setupRoute(requiredRole VaultRole, path
 			})
 		},
 	)
-}
-
-// createMiddleware creates a middleware using our mock repository
-func (s *VaultAccessMiddlewareTestSuite) createMiddleware(requiredRole VaultRole) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		ctx := c.UserContext()
-
-		userId := c.Locals("userId").(int)
-
-		requestedPath, shouldValidatePath := ResolveVaultPath(c)
-
-		vaultId, err := ResolveVaultId(c)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid vault id")
-		}
-
-		// Use our mock repo here
-		vaultUsers, err := s.mockRepo.GetVaultUsers(ctx, vaultId, userId)
-		if err != nil || len(vaultUsers) == 0 {
-			return fiber.NewError(fiber.StatusForbidden)
-		}
-
-		allowed := false
-		for _, vu := range vaultUsers {
-			if vu.Role <= requiredRole && (!shouldValidatePath || pathAllowed(vu.Path, requestedPath)) {
-				allowed = true
-				c.Locals("vaultRole", vu.Role)
-				if shouldValidatePath {
-					c.Locals("requestedVaultPath", requestedPath)
-				}
-				break
-			}
-		}
-
-		if !allowed {
-			return fiber.NewError(fiber.StatusForbidden, "Insufficient access level")
-		}
-
-		c.Locals("vaultId", vaultId)
-
-		return c.Next()
-	}
 }
 
 func (s *VaultAccessMiddlewareTestSuite) TestUserHasRequiredRole_FullAccess_ShouldAllow() {
@@ -175,7 +129,7 @@ func (s *VaultAccessMiddlewareTestSuite) TestUserHasHigherRole_ShouldAllow() {
 
 func (s *VaultAccessMiddlewareTestSuite) TestUserRestrictedToPath_AccessingAllowedPath_ShouldAllow() {
 	s.app = fiber.New()
-	middleware := s.createMiddleware(VaultRoleEditor)
+	middleware := VaultAccessMiddleware(s.mockRepo, VaultRoleEditor)
 
 	s.app.Get("/vault/:vaultId/files/*",
 		func(c *fiber.Ctx) error {
@@ -205,7 +159,7 @@ func (s *VaultAccessMiddlewareTestSuite) TestUserRestrictedToPath_AccessingAllow
 
 func (s *VaultAccessMiddlewareTestSuite) TestUserRestrictedToPath_AccessingDeniedPath_ShouldDeny() {
 	s.app = fiber.New()
-	middleware := s.createMiddleware(VaultRoleEditor)
+	middleware := VaultAccessMiddleware(s.mockRepo, VaultRoleEditor)
 
 	s.app.Get("/vault/:vaultId/files/*",
 		func(c *fiber.Ctx) error {
@@ -258,7 +212,7 @@ func (s *VaultAccessMiddlewareTestSuite) TestInvalidVaultId_ShouldReturn400() {
 
 func (s *VaultAccessMiddlewareTestSuite) TestMultipleVaultUserEntries_OneMatches_ShouldAllow() {
 	s.app = fiber.New()
-	middleware := s.createMiddleware(VaultRoleEditor)
+	middleware := VaultAccessMiddleware(s.mockRepo, VaultRoleEditor)
 
 	s.app.Get("/vault/:vaultId/files/*",
 		func(c *fiber.Ctx) error {
@@ -295,7 +249,7 @@ func (s *VaultAccessMiddlewareTestSuite) TestMultipleVaultUserEntries_OneMatches
 
 func (s *VaultAccessMiddlewareTestSuite) TestPathTraversalAttempt_ShouldDeny() {
 	s.app = fiber.New()
-	middleware := s.createMiddleware(VaultRoleEditor)
+	middleware := VaultAccessMiddleware(s.mockRepo, VaultRoleEditor)
 
 	s.app.Get("/vault/:vaultId/files/*",
 		func(c *fiber.Ctx) error {
@@ -327,7 +281,7 @@ func (s *VaultAccessMiddlewareTestSuite) TestPathTraversalAttempt_ShouldDeny() {
 
 func (s *VaultAccessMiddlewareTestSuite) TestRouteWithoutWildcard_NoPathValidation() {
 	s.app = fiber.New()
-	middleware := s.createMiddleware(VaultRoleEditor)
+	middleware := VaultAccessMiddleware(s.mockRepo, VaultRoleEditor)
 
 	// Route without wildcard and no path query/body - shouldValidate=false
 	s.app.Get("/vault/:vaultId/list",
@@ -359,7 +313,7 @@ func (s *VaultAccessMiddlewareTestSuite) TestRouteWithoutWildcard_NoPathValidati
 
 func (s *VaultAccessMiddlewareTestSuite) TestPathViaQueryParam_ShouldWork() {
 	s.app = fiber.New()
-	middleware := s.createMiddleware(VaultRoleEditor)
+	middleware := VaultAccessMiddleware(s.mockRepo, VaultRoleEditor)
 
 	// Route without wildcard - should resolve path from query param
 	s.app.Get("/vault/:vaultId/list",
@@ -390,7 +344,7 @@ func (s *VaultAccessMiddlewareTestSuite) TestPathViaQueryParam_ShouldWork() {
 
 func (s *VaultAccessMiddlewareTestSuite) TestPathViaJSONBody_ShouldWork() {
 	s.app = fiber.New()
-	middleware := s.createMiddleware(VaultRoleEditor)
+	middleware := VaultAccessMiddleware(s.mockRepo, VaultRoleEditor)
 
 	// Route without wildcard - should resolve path from JSON body
 	s.app.Post("/vault/:vaultId/create",
@@ -424,7 +378,7 @@ func (s *VaultAccessMiddlewareTestSuite) TestPathViaJSONBody_ShouldWork() {
 
 func (s *VaultAccessMiddlewareTestSuite) TestExactPathMatch_ShouldAllow() {
 	s.app = fiber.New()
-	middleware := s.createMiddleware(VaultRoleEditor)
+	middleware := VaultAccessMiddleware(s.mockRepo, VaultRoleEditor)
 
 	s.app.Get("/vault/:vaultId/files/*",
 		func(c *fiber.Ctx) error {
@@ -455,7 +409,7 @@ func (s *VaultAccessMiddlewareTestSuite) TestExactPathMatch_ShouldAllow() {
 
 func (s *VaultAccessMiddlewareTestSuite) TestSimilarPathPrefix_ShouldNotMatch() {
 	s.app = fiber.New()
-	middleware := s.createMiddleware(VaultRoleEditor)
+	middleware := VaultAccessMiddleware(s.mockRepo, VaultRoleEditor)
 
 	s.app.Get("/vault/:vaultId/files/*",
 		func(c *fiber.Ctx) error {
