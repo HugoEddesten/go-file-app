@@ -10,23 +10,23 @@ import (
 
 func ResolveVaultPath(c *fiber.Ctx) (string, bool) {
 	// 1. Wildcard route
-	if p := c.Params("*", "/"); p != "" {
+	if p := c.Params("*"); p != "" {
 		return cleanPath(p), true
 	}
 
 	// 2. URL param
-	if p := c.Params("path", "/"); p != "" {
+	if p := c.Params("path"); p != "" {
 		return cleanPath(p), true
 	}
 
 	// 3. Query
-	if p := c.Query("path", "/"); p != "" {
+	if p := c.Query("path"); p != "" {
 		return cleanPath(p), true
 	}
 
 	// 4. JSON body
 	body := new(PathBodyValidation)
-	if err := c.BodyParser(body); err == nil {
+	if err := c.BodyParser(body); err == nil && body.Path != "" {
 		return cleanPath(body.Path), true
 	}
 
@@ -53,11 +53,10 @@ func ResolveVaultId(c *fiber.Ctx) (int, error) {
 }
 
 func cleanPath(p string) string {
-	p = path.Clean("/" + p)
-	if strings.Contains(p, "..") {
-		return ""
-	}
-	return p
+	// path.Clean normalizes the path and resolves ".." sequences
+	// This prevents path traversal by converting paths like "/documents/../admin"
+	// into "/admin", which will then be checked against user permissions
+	return path.Clean("/" + p)
 }
 
 func pathAllowed(allowed, requested string) bool {

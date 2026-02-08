@@ -1,9 +1,18 @@
 package vault
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"context"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+// VaultUserGetter defines the interface needed by VaultAccessMiddleware
+type VaultUserGetter interface {
+	GetVaultUsers(ctx context.Context, vaultId, userId int) ([]VaultUser, error)
+}
 
 func VaultAccessMiddleware(
-	vaultRepo *Repository,
+	vaultRepo VaultUserGetter,
 	requiredRole VaultRole,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
