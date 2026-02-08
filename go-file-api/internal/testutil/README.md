@@ -92,7 +92,7 @@ err := pgContainer.Teardown(ctx)
 
 ## Schema Management
 
-The database schema is defined in `schema.sql` and is embedded into the binary using Go's `embed` directive. Any changes to the schema file will be automatically included when tests are run.
+The database schema is loaded from `db/migrations/schema.sql` via the `db.InitSchema()` function. This ensures that tests use the exact same schema as production, maintaining consistency across environments.
 
 ## Performance Tips
 

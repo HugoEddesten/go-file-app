@@ -2,18 +2,16 @@ package testutil
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"time"
+
+	"go-file-api/db"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
-
-//go:embed schema.sql
-var schemaSQL string
 
 // PostgresContainer holds the container instance and connection pool
 type PostgresContainer struct {
@@ -52,8 +50,8 @@ func SetupPostgres(ctx context.Context) (*PostgresContainer, error) {
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	// Initialize schema
-	if _, err := pool.Exec(ctx, schemaSQL); err != nil {
+	// Initialize schema using shared schema from db package
+	if err := db.InitSchema(ctx, pool); err != nil {
 		pool.Close()
 		pgContainer.Terminate(ctx)
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
