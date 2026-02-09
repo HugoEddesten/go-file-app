@@ -42,7 +42,6 @@ func (s *UsersRepositoryTestSuite) SetupTest() {
 	require.NoError(s.T(), err, "failed to cleanup tables")
 }
 
-// Test Create
 func (s *UsersRepositoryTestSuite) TestCreate_Success() {
 	email := "test@example.com"
 	passwordHash := "hashed_password_123"
@@ -77,7 +76,6 @@ func (s *UsersRepositoryTestSuite) TestCreate_DuplicateEmail_ReturnsError() {
 	assert.Error(s.T(), err)
 }
 
-// Test FindByEmail
 func (s *UsersRepositoryTestSuite) TestFindByEmail_UserExists() {
 	email := "find@example.com"
 	passwordHash := "hashed_password_456"
@@ -106,6 +104,43 @@ func (s *UsersRepositoryTestSuite) TestFindByEmail_UserDoesNotExist() {
 	// Should return error (pgx.ErrNoRows)
 	assert.Error(s.T(), err)
 	assert.NotNil(s.T(), user) // The function still returns a User struct
+}
+
+func (s *UsersRepositoryTestSuite) TestFindByEmail_MalformedEmail() {
+	// Test with empty string
+	user, err := s.repo.FindByEmail("")
+
+	// Should return error (no rows found)
+	assert.Error(s.T(), err)
+	assert.NotNil(s.T(), user)
+
+	// Test with malformed email (no validation at DB level, just won't find it)
+	user2, err2 := s.repo.FindByEmail("not-an-email")
+
+	// Should return error (no rows found)
+	assert.Error(s.T(), err2)
+	assert.NotNil(s.T(), user2)
+}
+
+func (s *UsersRepositoryTestSuite) TestCreate_ValidatesInput() {
+	// Test with empty email
+	userId, err := s.repo.Create("", "password_hash")
+
+	// Should succeed at DB level (no validation in repository)
+	// Note: In production, validation should happen at handler/service level
+	assert.NoError(s.T(), err)
+	assert.Greater(s.T(), userId, 0)
+
+	// Clean up for next test
+	err = s.pgContainer.CleanupTables(s.ctx)
+	require.NoError(s.T(), err)
+
+	// Test with empty password hash
+	userId2, err2 := s.repo.Create("user@example.com", "")
+
+	// Should succeed at DB level (validation should be done before repository call)
+	assert.NoError(s.T(), err2)
+	assert.Greater(s.T(), userId2, 0)
 }
 
 func TestUsersRepositoryTestSuite(t *testing.T) {

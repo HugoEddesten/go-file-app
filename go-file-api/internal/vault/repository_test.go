@@ -163,6 +163,19 @@ func (s *VaultRepositoryTestSuite) TestGetVaultUsers_NoAccess() {
 	assert.Empty(s.T(), vaultUsers)
 }
 
+func (s *VaultRepositoryTestSuite) TestGetVaultUsers_DatabaseError() {
+	// Create a cancelled context to force a database error
+	cancelledCtx, cancel := context.WithCancel(s.ctx)
+	cancel() // Immediately cancel the context
+
+	// Try to query with cancelled context
+	vaultUsers, err := s.repo.GetVaultUsers(cancelledCtx, 1, 1)
+
+	// Should return error due to cancelled context
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), vaultUsers)
+}
+
 // Test UpdateVaultUser
 func (s *VaultRepositoryTestSuite) TestUpdateVaultUser_Success() {
 	owner := s.createTestUser("owner@example.com")
@@ -185,6 +198,154 @@ func (s *VaultRepositoryTestSuite) TestUpdateVaultUser_Success() {
 	assert.Equal(s.T(), VaultRoleEditor, updated.Role)
 	assert.Equal(s.T(), "/documents", updated.Path)
 	assert.True(s.T(), updated.UpdatedAt.After(updated.CreatedAt))
+}
+
+func (s *VaultRepositoryTestSuite) TestUpdateVaultUser_NonExistent() {
+	// Try to update a non-existent vault user
+	nonExistentVaultUser := &VaultUser{
+		Id:      99999,
+		VaultId: 1,
+		UserId:  1,
+		Path:    "/test",
+		Role:    VaultRoleEditor,
+	}
+
+	updated, err := s.repo.UpdateVaultUser(s.ctx, nonExistentVaultUser)
+
+	// Should return error (no rows to update)
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), updated)
+}
+
+// Test GetVault
+func (s *VaultRepositoryTestSuite) TestGetVault_Success() {
+	owner := s.createTestUser("owner@example.com")
+	editor := s.createTestUser("editor@example.com")
+
+	vault, err := s.repo.Create(s.ctx, "Multi-User Vault", owner)
+	require.NoError(s.T(), err)
+
+	// Add editor to vault
+	_, err = s.repo.AddUserToVault(s.ctx, vault.Id, editor, "/docs", VaultRoleEditor)
+	require.NoError(s.T(), err)
+
+	// Get vault with all users
+	vaultWithUsers, err := s.repo.GetVault(s.ctx, vault.Id)
+
+	// Assertions
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), vaultWithUsers)
+	assert.Equal(s.T(), vault.Id, vaultWithUsers.Id)
+	assert.Equal(s.T(), "Multi-User Vault", vaultWithUsers.Name)
+	assert.Len(s.T(), vaultWithUsers.Users, 2) // Owner and Editor
+}
+
+func (s *VaultRepositoryTestSuite) TestGetVault_AggregatesMultipleUsers() {
+	owner := s.createTestUser("owner@example.com")
+	user2 := s.createTestUser("user2@example.com")
+	user3 := s.createTestUser("user3@example.com")
+
+	vault, err := s.repo.Create(s.ctx, "Shared Vault", owner)
+	require.NoError(s.T(), err)
+
+	// Add multiple users
+	_, err = s.repo.AddUserToVault(s.ctx, vault.Id, user2, "/", VaultRoleEditor)
+	require.NoError(s.T(), err)
+	_, err = s.repo.AddUserToVault(s.ctx, vault.Id, user3, "/public", VaultRoleViewer)
+	require.NoError(s.T(), err)
+
+	// Get vault
+	vaultWithUsers, err := s.repo.GetVault(s.ctx, vault.Id)
+
+	// Should properly aggregate all users
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), vaultWithUsers.Users, 3)
+
+	// Verify each user has correct properties
+	for _, user := range vaultWithUsers.Users {
+		assert.NotZero(s.T(), user.Id)
+		assert.NotEmpty(s.T(), user.Email)
+		assert.NotZero(s.T(), user.Role)
+		assert.NotEmpty(s.T(), user.Path)
+	}
+}
+
+func (s *VaultRepositoryTestSuite) TestGetVault_NonExistent() {
+	nonExistentVaultId := 99999
+
+	// Try to get non-existent vault
+	vault, err := s.repo.GetVault(s.ctx, nonExistentVaultId)
+
+	// Should return error (ErrNoRows)
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), vault)
+}
+
+// Test GetVaultsForUser
+func (s *VaultRepositoryTestSuite) TestGetVaultsForUser_Success() {
+	user := s.createTestUser("user@example.com")
+	otherUser := s.createTestUser("other@example.com")
+
+	// Create multiple vaults
+	_, err := s.repo.Create(s.ctx, "Vault 1", user)
+	require.NoError(s.T(), err)
+	_, err = s.repo.Create(s.ctx, "Vault 2", user)
+	require.NoError(s.T(), err)
+
+	// Add user to a third vault owned by someone else
+	vault3, err := s.repo.Create(s.ctx, "Vault 3", otherUser)
+	require.NoError(s.T(), err)
+	_, err = s.repo.AddUserToVault(s.ctx, vault3.Id, user, "/shared", VaultRoleEditor)
+	require.NoError(s.T(), err)
+
+	// Get all vaults for user
+	vaults, err := s.repo.GetVaultsForUser(s.ctx, user)
+
+	// Assertions
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), vaults, 3) // User has access to all 3 vaults
+
+	// Verify vault names
+	vaultNames := make(map[string]bool)
+	for _, v := range vaults {
+		vaultNames[v.Name] = true
+	}
+	assert.True(s.T(), vaultNames["Vault 1"])
+	assert.True(s.T(), vaultNames["Vault 2"])
+	assert.True(s.T(), vaultNames["Vault 3"])
+}
+
+func (s *VaultRepositoryTestSuite) TestGetVaultsForUser_AggregatesUsers() {
+	owner := s.createTestUser("owner@example.com")
+	editor := s.createTestUser("editor@example.com")
+	viewer := s.createTestUser("viewer@example.com")
+
+	// Create vault with multiple users
+	vault, err := s.repo.Create(s.ctx, "Team Vault", owner)
+	require.NoError(s.T(), err)
+	_, err = s.repo.AddUserToVault(s.ctx, vault.Id, editor, "/", VaultRoleEditor)
+	require.NoError(s.T(), err)
+	_, err = s.repo.AddUserToVault(s.ctx, vault.Id, viewer, "/public", VaultRoleViewer)
+	require.NoError(s.T(), err)
+
+	// Get vaults for owner
+	vaults, err := s.repo.GetVaultsForUser(s.ctx, owner)
+
+	// Should return vault with all users properly aggregated
+	assert.NoError(s.T(), err)
+	require.Len(s.T(), vaults, 1)
+	assert.Len(s.T(), vaults[0].Users, 3) // Owner, Editor, Viewer
+}
+
+func (s *VaultRepositoryTestSuite) TestGetVaultsForUser_NoVaults() {
+	user := s.createTestUser("isolated@example.com")
+
+	// Get vaults for user with no vault access
+	vaults, err := s.repo.GetVaultsForUser(s.ctx, user)
+
+	// Should return empty slice, no error
+	assert.NoError(s.T(), err)
+	assert.Empty(s.T(), vaults)
 }
 
 func TestVaultRepositoryTestSuite(t *testing.T) {
