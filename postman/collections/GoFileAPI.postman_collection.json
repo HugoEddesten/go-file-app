@@ -1,0 +1,454 @@
+{
+  "info": {
+    "_postman_id": "6d1d4521-9b6b-4340-8a94-d7a1c242e174",
+    "name": "GoFileApi",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "id": "a3903aa6-a0ba-4a4f-a4aa-2eef15906e7c",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\": \"email@local.com\",\r\n    \"password\": \"Password123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://127.0.0.1:3000/auth/login",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register",
+          "id": "9e5b96ad-eb29-415a-9984-5ab43e05b6db",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\": \"email@local.com\",\r\n    \"password\": \"Password123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://127.0.0.1:3000/auth/register",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "b438eac8-16d2-4307-a9aa-6a01f39edd5e"
+    },
+    {
+      "name": "Vault",
+      "item": [
+        {
+          "name": "GetUserVaults",
+          "id": "61df396d-3af8-4bbd-ba36-910218b15b74",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:3000/vault/get-user-vaults",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "vault",
+                "get-user-vaults"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "UpdateVaultUser",
+          "id": "ee034fe0-e315-48b4-ad0e-0d45e7d818fa",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"vaultUserId\": 4,\r\n    \"role\": 3,\r\n    \"path\": \"/new\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://127.0.0.1:3000/vault/update-vault-user/1",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "vault",
+                "update-vault-user",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "AssignUser",
+          "id": "79b747ce-7cc1-4b67-b5b1-5489dbe881ba",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"path\": \"/\",\r\n    \"role\": 3,\r\n    \"email\": \"hugo.eddesten2@gmail.com\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://127.0.0.1:3000/vault/assign-user/1",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "vault",
+                "assign-user",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GetVault",
+          "id": "8557ade3-7003-4184-b241-ffe6513cf959",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:3000/vault/get-vault/1",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "vault",
+                "get-vault",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create",
+          "id": "8526bb4c-8f6e-4669-ac80-12b745a02fb5",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": ""
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "fca79307-f2b4-4f7c-9407-c775d083793f"
+    },
+    {
+      "name": "File",
+      "item": [
+        {
+          "name": "List",
+          "id": "a6989cc0-78a8-4b27-b3eb-55cd8f892ba2",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:3000/files/1/list/",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "files",
+                "1",
+                "list",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Download",
+          "id": "083e1f90-f6aa-4d59-bdce-57e3bab106e3",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "http://127.0.0.1:3000/files/1/download/glencairn-whiskyglas-fylld-2868.jpg",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "files",
+                "1",
+                "download",
+                "glencairn-whiskyglas-fylld-2868.jpg"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search",
+          "id": "7482f530-944f-4035-9bb8-17c8b04453dd",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:3000/files/search?q=f",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "files",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "f",
+                  "uuid": "d24e0279-0753-4e4b-95fb-e68a260eb848"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload",
+          "id": "569cd855-e623-4bdf-af33-39333627983f",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data",
+                "type": "text",
+                "uuid": "9155bf80-d776-44bf-bd98-3b71a0d42836",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "uuid": "65dc3c72-e0a1-429e-86db-450d6a84bbbb",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://127.0.0.1:3000/files/1/upload/",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "files",
+                "1",
+                "upload",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "d2f5997f-ebed-4a84-9b2f-7b21abe03194"
+    }
+  ]
+}
