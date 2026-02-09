@@ -10,6 +10,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./go-file-api
 
     steps:
       - name: Checkout code
@@ -22,10 +25,7 @@ jobs:
 
       - name: Download dependencies
         run: go mod download
-
-      - name: Run tests
-        run: go test -v ./...
-
+        
       - name: Run tests with coverage
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 

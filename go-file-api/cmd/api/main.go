@@ -1,26 +1,46 @@
 package main
 
 import (
+	"context"
+	"flag"
+	"log"
+	"os"
+	"time"
+
+	"go-file-api/db"
 	"go-file-api/internal/auth"
-	"go-file-api/internal/db"
+	internaldb "go-file-api/internal/db"
 	"go-file-api/internal/files"
 	"go-file-api/internal/jwt"
 	"go-file-api/internal/users"
 	"go-file-api/internal/vault"
-	"log"
-	"os"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func main() {
-	database, err := db.Connect()
+	// Parse command line flags
+	autoMigrate := flag.Bool("auto-migrate", false, "Automatically run database migrations on startup")
+	flag.Parse()
+
+	database, err := internaldb.Connect()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer database.Close()
+
+	// Run migrations if requested
+	if *autoMigrate {
+		log.Println("Running database migrations...")
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := db.InitSchema(ctx, database.Pool); err != nil {
+			log.Fatalf("Migration failed: %v", err)
+		}
+		log.Println("✅ Database schema initialized successfully")
+	}
 
 	jwtService := jwt.New("my_secret_key_123", "go-file-api", time.Hour*24)
 	jwtMiddleware := jwt.Protected(jwtService)
