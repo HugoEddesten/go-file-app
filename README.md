@@ -30,14 +30,32 @@ This starts PostgreSQL on port 5432 and pgAdmin on port 8080.
 | Postgres | localhost:5432    | admin / admin123 / filedb  |
 | pgAdmin  | localhost:8080    | admin@local.com / admin123 |
 
-### 2. Create the Database Schema
+### 2. Initialize the Database Schema
 
-Connect to the database and create the required tables. There is no automated migration tool — the schema must be set up manually.
+The project includes a migration system with the schema defined in `go-file-api/db/migrations/schema.sql`.
 
-**Tables:**
-- `users` — id, email, password_hash, created_at, updated_at
+**Option 1: Standalone Migration Tool (Recommended)**
+
+```bash
+cd go-file-api
+go run ./cmd/migrate
+```
+
+**Option 2: Auto-migrate on Startup**
+
+```bash
+cd go-file-api
+go run ./cmd/api/main.go --auto-migrate
+```
+
+The migration is **safe to run multiple times** (uses `IF NOT EXISTS`) and won't destroy existing data.
+
+**Schema:**
+- `users` — id, email (unique), password_hash, created_at, updated_at
 - `vaults` — id, name, created_at, updated_at
-- `vault_users` — id, vault_id, user_id, path, role, created_at, updated_at
+- `vault_users` — id, vault_id, user_id, path, role (1-4), created_at, updated_at
+  - Unique constraint on (vault_id, user_id, path)
+  - Indexes for performance optimization
 
 ### 3. Run the Backend
 
@@ -133,3 +151,36 @@ Users can be restricted to specific paths within a vault for fine-grained access
 | Variable     | Default                    |
 |--------------|----------------------------|
 | VITE_API_URL | http://127.0.0.1:3000/     |
+
+## Testing
+
+### Backend Tests
+
+The Go API has comprehensive repository and middleware tests using:
+- **Framework:** testify/suite, testify/assert, testify/require
+- **Database:** Testcontainers with PostgreSQL 15-alpine (isolated test databases)
+- **Utilities:** `internal/testutil` package for container setup and cleanup
+
+**Test Coverage:**
+- User repository (Create, FindByEmail)
+- Vault repository (Create, AddUserToVault, GetVaultUsers, UpdateVaultUser, GetVault, GetVaultsForUser)
+- Vault helpers and middleware (role-based access control)
+- JWT authentication middleware
+
+**Running Tests:**
+
+```bash
+cd go-file-api
+go test ./...                    # Run all tests
+go test -v ./...                 # Verbose output
+go test -race -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -func=coverage.out  # Coverage report
+```
+
+**CI/CD:**
+
+Tests run automatically via GitHub Actions on pull requests and pushes to main (`.github/workflows/test.yml`).
+
+### Frontend Tests
+
+No test infrastructure yet.
