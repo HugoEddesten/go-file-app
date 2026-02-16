@@ -13,7 +13,6 @@ import { useState } from "react";
 import { api } from "../../../lib/api";
 import { queryClient } from "../../../lib/queryClient";
 import { ShareVaultModal } from "./ShareVaultModal";
-import { all } from "axios";
 import { useVaults } from "../../vaults/api/getVaults";
 import { MaximizedSpinner } from "../../../components/ui/maximizedSpinner";
 import { FolderUser } from "../../../components/ui/FolderUser";

@@ -14,16 +14,37 @@ func TestResolveVaultPath_Wildcard(t *testing.T) {
 	app := fiber.New()
 	var resolvedPath string
 	var shouldValidate bool
+	var resolvedErr error
 
 	app.Get("/vault/:vaultId/*", func(c *fiber.Ctx) error {
-		resolvedPath, shouldValidate = ResolveVaultPath(c)
+		resolvedPath, shouldValidate, resolvedErr = ResolveVaultPath(c)
 		return c.SendString("ok")
 	})
 
 	req := httptest.NewRequest("GET", "/vault/1/documents/file.txt", nil)
 	app.Test(req)
 
+	assert.NoError(t, resolvedErr)
 	assert.Equal(t, "/documents/file.txt", resolvedPath)
+	assert.True(t, shouldValidate)
+}
+
+func TestResolveVaultPath_WildcardRootDir(t *testing.T) {
+	app := fiber.New()
+	var resolvedPath string
+	var shouldValidate bool
+	var resolvedErr error
+
+	app.Get("/vault/:vaultId/*", func(c *fiber.Ctx) error {
+		resolvedPath, shouldValidate, resolvedErr = ResolveVaultPath(c)
+		return c.SendString("ok")
+	})
+
+	req := httptest.NewRequest("GET", "/vault/1/", nil)
+	app.Test(req)
+
+	assert.NoError(t, resolvedErr)
+	assert.Equal(t, "/", resolvedPath)
 	assert.True(t, shouldValidate)
 }
 
@@ -31,10 +52,11 @@ func TestResolveVaultPath_QueryParam(t *testing.T) {
 	app := fiber.New()
 	var resolvedPath string
 	var shouldValidate bool
+	var resolvedErr error
 
 	// Route with NO wildcard
 	app.Get("/vault/:vaultId/list", func(c *fiber.Ctx) error {
-		resolvedPath, shouldValidate = ResolveVaultPath(c)
+		resolvedPath, shouldValidate, resolvedErr = ResolveVaultPath(c)
 		return c.SendString("ok")
 	})
 
@@ -42,6 +64,7 @@ func TestResolveVaultPath_QueryParam(t *testing.T) {
 	app.Test(req)
 
 	// Should resolve from query param
+	assert.NoError(t, resolvedErr)
 	assert.Equal(t, "/uploads/image.png", resolvedPath)
 	assert.True(t, shouldValidate)
 }
@@ -50,9 +73,10 @@ func TestResolveVaultPath_JSONBody(t *testing.T) {
 	app := fiber.New()
 	var resolvedPath string
 	var shouldValidate bool
+	var resolvedErr error
 
 	app.Post("/vault/:vaultId/create", func(c *fiber.Ctx) error {
-		resolvedPath, shouldValidate = ResolveVaultPath(c)
+		resolvedPath, shouldValidate, resolvedErr = ResolveVaultPath(c)
 		return c.SendString("ok")
 	})
 
@@ -64,6 +88,7 @@ func TestResolveVaultPath_JSONBody(t *testing.T) {
 	app.Test(req)
 
 	// Should resolve from JSON body
+	assert.NoError(t, resolvedErr)
 	assert.Equal(t, "/uploads/newfile.txt", resolvedPath)
 	assert.True(t, shouldValidate)
 }
@@ -72,15 +97,17 @@ func TestResolveVaultPath_NoPath(t *testing.T) {
 	app := fiber.New()
 	var resolvedPath string
 	var shouldValidate bool
+	var resolvedErr error
 
 	app.Get("/vault/:vaultId/info", func(c *fiber.Ctx) error {
-		resolvedPath, shouldValidate = ResolveVaultPath(c)
+		resolvedPath, shouldValidate, resolvedErr = ResolveVaultPath(c)
 		return c.SendString("ok")
 	})
 
 	req := httptest.NewRequest("GET", "/vault/1/info", nil)
 	app.Test(req)
 
+	assert.NoError(t, resolvedErr)
 	assert.Equal(t, "/", resolvedPath)
 	assert.False(t, shouldValidate)
 }
@@ -250,15 +277,35 @@ func TestPathAllowed_DeniedPaths(t *testing.T) {
 }
 
 func TestCleanPath(t *testing.T) {
-	// Normal paths
-	assert.Equal(t, "/documents/file.txt", cleanPath("/documents/file.txt"))
-	assert.Equal(t, "/documents/file.txt", cleanPath("documents/file.txt"))
-	assert.Equal(t, "/", cleanPath("/"))
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		wantErr  bool
+	}{
+		// Normal paths
+		{"absolute path", "/documents/file.txt", "/documents/file.txt", false},
+		{"relative path", "documents/file.txt", "/documents/file.txt", false},
+		{"root path", "/", "/", false},
 
-	// Path traversal attempts - path.Clean normalizes these
-	// Note: Path traversal is prevented by pathAllowed() checking permissions,
-	// not by cleanPath itself. cleanPath just normalizes the path.
-	assert.Equal(t, "/admin", cleanPath("/documents/../admin"))
-	assert.Equal(t, "/", cleanPath(".."))
-	assert.Equal(t, "/admin", cleanPath("../admin"))
+		// Path traversal attempts - path.Clean normalizes these
+		{"traversal to admin", "/documents/../admin", "/admin", false},
+		{"parent directory", "..", "/", false},
+		{"relative traversal", "../admin", "/admin", false},
+
+		// Error cases
+		{"invalid encoding", "%ZZ", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := cleanPath(tt.input)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
 }

@@ -3,7 +3,6 @@ package files
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +13,7 @@ import (
 func UploadFile() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := c.Locals("vaultId").(int)
-		fileKey := c.Params("*")
+		fileKey := c.Locals("requestedVaultPath")
 
 		file, err := c.FormFile("file")
 		if err != nil {
@@ -41,7 +40,7 @@ func UploadFile() fiber.Handler {
 func CreateFile() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := c.Locals("vaultId").(int)
-		parentDirKey := c.Params("*")
+		parentDirKey := c.Locals("requestedVaultPath")
 		ext := c.Query("ext")
 
 		baseDir := fmt.Sprintf("./uploads/%d/%s", vaultId, parentDirKey)
@@ -82,13 +81,8 @@ func CreateFile() fiber.Handler {
 func DownloadFile() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := c.Locals("vaultId").(int)
+		fileKey := c.Locals("requestedVaultPath")
 		action := c.Query("action", "send")
-
-		fileKeyEncoded := c.Params("*")
-		fileKey, err := url.QueryUnescape(fileKeyEncoded)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "invalid filename encoding")
-		}
 
 		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
 
@@ -115,8 +109,7 @@ func GetMetadata() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := c.Locals("vaultId").(int)
 
-		fileKeyEncoded := c.Params("*")
-		fileKey, _ := url.QueryUnescape(fileKeyEncoded)
+		fileKey := c.Locals("requestedVaultPath")
 		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
 
 		file, err := os.Open(path)
@@ -146,14 +139,9 @@ func GetMetadata() fiber.Handler {
 func ListFiles() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := c.Locals("vaultId").(int)
-		fileKeyEncoded := c.Params("*")
+		fileKey := c.Locals("requestedVaultPath")
 
-		fileKey, err := url.QueryUnescape(fileKeyEncoded)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "invalid filename encoding")
-		}
-
-		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
+		path := fmt.Sprintf("./uploads/%d%s", vaultId, fileKey)
 
 		files := make([]FileResponse, 0)
 
@@ -164,11 +152,11 @@ func ListFiles() fiber.Handler {
 
 		for _, entry := range entries {
 			var key string
-			if fileKey == "" {
+			if fileKey == "/" {
 				key = fmt.Sprintf("/%s", entry.Name())
 
 			} else {
-				key = fmt.Sprintf("/%s/%s", fileKey, entry.Name())
+				key = fmt.Sprintf("%s/%s", fileKey, entry.Name())
 			}
 
 			files = append(files, FileResponse{
@@ -208,4 +196,148 @@ func SearchFiles() fiber.Handler {
 
 		return c.JSON(matches)
 	}
+}
+
+func RenameFile() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		vaultId := c.Locals("vaultId").(int)
+
+		// Get the original file/folder path from middleware
+		// The VaultAccessMiddleware already resolved and cleaned the path
+		fileKey := c.Locals("requestedVaultPath").(string)
+
+		// Parse request body for new name
+		var req RenameRequest
+		if err := c.BodyParser(&req); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+		}
+
+		// Validate new name
+		if req.NewName == "" {
+			return fiber.NewError(fiber.StatusBadRequest, "newName is required")
+		}
+
+		// Prevent path traversal attacks
+		if strings.Contains(req.NewName, "/") || strings.Contains(req.NewName, "\\") {
+			return fiber.NewError(fiber.StatusBadRequest, "newName cannot contain path separators")
+		}
+
+		// Construct old and new paths
+		oldPath := fmt.Sprintf("./uploads/%d%s", vaultId, fileKey)
+
+		// Get parent directory
+		parentDir := filepath.Dir(oldPath)
+		newPath := filepath.Join(parentDir, req.NewName)
+
+		// Check if old path exists
+		stat, err := os.Stat(oldPath)
+		if os.IsNotExist(err) {
+			return fiber.NewError(fiber.StatusNotFound, "file or folder not found")
+		}
+
+		// Check if new path already exists
+		if _, err := os.Stat(newPath); err == nil {
+			return fiber.NewError(fiber.StatusConflict, "a file or folder with that name already exists")
+		}
+
+		// Try to rename with retry logic for Windows file locking issues
+		if err := rename(oldPath, newPath, stat.IsDir()); err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to rename file or folder")
+		}
+
+		// Generate new client key
+		clientKey := getClientKeyFromFilePath(newPath)
+
+		return c.JSON(FileResponse{
+			Name: req.NewName,
+			Key:  clientKey,
+		})
+	}
+}
+
+// renameWithFallback attempts to rename a file or directory using os.Rename with retries.
+// If that fails (common on Windows due to file locking), it falls back to copy-then-delete.
+func rename(oldPath, newPath string, isDir bool) error {
+	if isDir {
+		// For directories, use recursive copy
+		if err := copyDir(oldPath, newPath); err != nil {
+			return err
+		}
+	} else {
+		// For files, use file copy
+		if err := copyFile(oldPath, newPath); err != nil {
+			fmt.Print(err.Error())
+			return err
+		}
+	}
+
+	// If copy succeeded, remove the old path
+	// Use RemoveAll to handle both files and directories
+	return os.RemoveAll(oldPath)
+}
+
+// copyFile copies a single file from src to dst, preserving permissions
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	// Get source file info for permissions
+	sourceInfo, err := sourceFile.Stat()
+	if err != nil {
+		return err
+	}
+
+	// Create destination file with same permissions
+	destFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, sourceInfo.Mode())
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	// Copy file contents
+	_, err = sourceFile.WriteTo(destFile)
+	return err
+}
+
+// copyDir recursively copies a directory from src to dst
+func copyDir(src, dst string) error {
+	// Get source directory info
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	// Create destination directory with same permissions
+	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	// Read directory contents
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	// Copy each entry
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			// Recursively copy subdirectory
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			// Copy file
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
