@@ -16,4 +16,5 @@ func RegisterRoutes(app *fiber.App, vaultRepo *vault.Repository, minIOService *s
 	group.Get("metadata/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleViewer), GetMetadata())
 	group.Get("list/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleViewer), ListFiles(minIOService))
 	group.Get("search", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleViewer), SearchFiles())
+	group.Put("rename/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleEditor), RenameFile())
 }

@@ -8,6 +8,9 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "../../../components/ui/context-menu";
+import { useState } from "react";
+import { Input } from "../../../components/ui/input";
+import { useRenameFile } from "../api/renameFile";
 
 export const FileMinimized = ({
   file,
@@ -20,6 +23,13 @@ export const FileMinimized = ({
   onClick?: (e: React.MouseEvent) => void;
   vaultId: number;
 }) => {
+  const [isRenaming, setIsRenaming] = useState(false);
+  const extension = file.Name.split(".")[1];
+  const { mutateAsync: renameFileAsync } = useRenameFile({
+    path: file.Key,
+    vaultId,
+  });
+
   const handleDownload = () => {
     window.location.href = `${
       import.meta.env.VITE_API_URL
@@ -39,13 +49,29 @@ export const FileMinimized = ({
           <div className="flex justify-center w-full">
             <File />
           </div>
-          <p
+          <div
             className={cn(
-              "text-center text-sm wrap-anywhere overflow-hidden truncate hover:overflow-visible hover:whitespace-break-spaces"
+              "text-center text-sm wrap-anywhere overflow-hidden truncate hover:overflow-visible hover:whitespace-break-spaces",
             )}
+            onDoubleClick={() => setIsRenaming(true)}
           >
-            {file.Name}
-          </p>
+            {isRenaming ? (
+              <Input
+                className="p-0 h-6 focus:ring-0!"
+                defaultValue={file.Name.split(".")[0]}
+                autoFocus
+                onFocus={(e) => e.target.select()}
+                onBlur={(e) => {
+                  setIsRenaming(false);
+                  if (e.target.value !== file.Name) {
+                    renameFileAsync(e.target.value.concat(".", extension));
+                  }
+                }}
+              />
+            ) : (
+              file.Name
+            )}
+          </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-52">
           <ContextMenuItem onClick={() => handleDownload()}>
