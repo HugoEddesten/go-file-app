@@ -2,35 +2,50 @@ package vault
 
 import (
 	"errors"
+	"net/url"
 	"path"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func ResolveVaultPath(c *fiber.Ctx) (string, bool) {
-	// 1. Wildcard route
-	if p := c.Params("*"); p != "" {
-		return cleanPath(p), true
+func ResolveVaultPath(c *fiber.Ctx) (string, bool, error) {
+	extractors := []func() (string, bool){
+		func() (string, bool) {
+			if c.Route().Path != "" && strings.Contains(c.Route().Path, "*") {
+				return c.Params("*"), true
+			}
+			return "", false
+		},
+		func() (string, bool) {
+			p := c.Params("path")
+			return p, p != ""
+		},
+		func() (string, bool) {
+			p := c.Query("path")
+			return p, p != ""
+		},
+		func() (string, bool) {
+			body := new(PathBodyValidation)
+			if err := c.BodyParser(body); err == nil && body.Path != "" {
+				return body.Path, true
+			}
+			return "", false
+		},
 	}
 
-	// 2. URL param
-	if p := c.Params("path"); p != "" {
-		return cleanPath(p), true
+	for _, extract := range extractors {
+		p, found := extract()
+		if found {
+			path, err := cleanPath(p)
+			if err != nil {
+				return "", false, err
+			}
+			return path, true, nil
+		}
 	}
 
-	// 3. Query
-	if p := c.Query("path"); p != "" {
-		return cleanPath(p), true
-	}
-
-	// 4. JSON body
-	body := new(PathBodyValidation)
-	if err := c.BodyParser(body); err == nil && body.Path != "" {
-		return cleanPath(body.Path), true
-	}
-
-	return "/", false
+	return "/", false, nil
 }
 
 func ResolveVaultId(c *fiber.Ctx) (int, error) {
@@ -52,11 +67,16 @@ func ResolveVaultId(c *fiber.Ctx) (int, error) {
 	return 0, errors.New("vaultId not found")
 }
 
-func cleanPath(p string) string {
+func cleanPath(p string) (string, error) {
 	// path.Clean normalizes the path and resolves ".." sequences
 	// This prevents path traversal by converting paths like "/documents/../admin"
 	// into "/admin", which will then be checked against user permissions
-	return path.Clean("/" + p)
+	fileKey, err := url.QueryUnescape(p)
+	if err != nil {
+		return "", errors.New("invalid filename encoding")
+	}
+
+	return path.Clean("/" + fileKey), nil
 }
 
 func pathAllowed(allowed, requested string) bool {

@@ -20,7 +20,10 @@ func VaultAccessMiddleware(
 
 		userId := c.Locals("userId").(int) // set by auth middleware
 
-		requestedPath, shouldValidatePath := ResolveVaultPath(c)
+		requestedPath, shouldValidatePath, err := ResolveVaultPath(c)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Unable to resolve path")
+		}
 
 		vaultId, err := ResolveVaultId(c)
 		if err != nil {

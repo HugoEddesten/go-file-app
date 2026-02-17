@@ -12,3 +12,7 @@ type FileMetadata struct {
 	Editable    bool   `json:"editable"`
 	Previewable bool   `json:"previewable"`
 }
+
+type RenameRequest struct {
+	NewName string `json:"newName"`
+}
