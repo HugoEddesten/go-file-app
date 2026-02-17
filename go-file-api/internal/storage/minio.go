@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"log"
+	"net/url"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -84,6 +86,10 @@ func (s *MinIOService) ListObjects(ctx context.Context, bucketName, prefix strin
 		Prefix:    prefix,
 		Recursive: recursive,
 	})
+}
+
+func (s *MinIOService) GetPresignedUrl(ctx context.Context, bucketName, objectName string, expires time.Duration) (*url.URL, error) {
+	return s.client.PresignedGetObject(ctx, bucketName, objectName, expires, nil)
 }
 
 // TODO: Experiment with these features:

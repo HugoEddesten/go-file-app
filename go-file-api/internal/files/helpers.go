@@ -2,6 +2,8 @@ package files
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,4 +52,11 @@ func isPreviewable(mime string) bool {
 	default:
 		return false
 	}
+}
+
+func getContentType(reader io.Reader) string {
+	buffer := make([]byte, 512)
+	_, _ = reader.Read(buffer)
+	contentType := http.DetectContentType(buffer)
+	return contentType
 }

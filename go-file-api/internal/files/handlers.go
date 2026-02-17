@@ -2,16 +2,18 @@ package files
 
 import (
 	"fmt"
+	"go-file-api/internal/storage"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func UploadFile() fiber.Handler {
+func UploadFile(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := c.Locals("vaultId").(int)
 		fileKey := c.Params("*")
@@ -21,11 +23,17 @@ func UploadFile() fiber.Handler {
 			return err
 		}
 
-		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
-		os.MkdirAll(path, os.ModePerm)
+		fileReader, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer fileReader.Close()
 
+		path := fmt.Sprintf("vault-%d/%s", vaultId, fileKey)
 		savePath := filepath.Join(path, file.Filename)
-		err = c.SaveFile(file, savePath)
+		contentType := getContentType(fileReader)
+
+		err = minIOService.UploadObject(c.Context(), "file-vault", savePath, fileReader, -1, contentType)
 		if err != nil {
 			return err
 		}
@@ -98,9 +106,7 @@ func DownloadFile() fiber.Handler {
 		}
 		defer file.Close()
 
-		buffer := make([]byte, 512)
-		_, _ = file.Read(buffer)
-		contentType := http.DetectContentType(buffer)
+		contentType := getContentType(file)
 
 		c.Set("Content-Type", contentType)
 
@@ -143,7 +149,7 @@ func GetMetadata() fiber.Handler {
 	}
 }
 
-func ListFiles() fiber.Handler {
+func ListFiles(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := c.Locals("vaultId").(int)
 		fileKeyEncoded := c.Params("*")
@@ -153,26 +159,21 @@ func ListFiles() fiber.Handler {
 			return fiber.NewError(fiber.StatusBadRequest, "invalid filename encoding")
 		}
 
-		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
-
+		filePath := fmt.Sprintf("vault-%d\\%s", vaultId, fileKey)
+		fmt.Print(filePath)
 		files := make([]FileResponse, 0)
 
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return c.JSON(files)
-		}
+		entries := minIOService.ListObjects(c.Context(), "file-vault", filePath, false)
 
-		for _, entry := range entries {
-			var key string
-			if fileKey == "" {
-				key = fmt.Sprintf("/%s", entry.Name())
-
-			} else {
-				key = fmt.Sprintf("/%s/%s", fileKey, entry.Name())
+		for entry := range entries {
+			if entry.Err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": entry.Err.Error()})
 			}
+			var key string
+			key = fmt.Sprintf("/%s", entry.Key)
 
 			files = append(files, FileResponse{
-				Name: entry.Name(),
+				Name: path.Base(entry.Key),
 				Key:  key,
 			})
 		}
