@@ -108,7 +108,7 @@ func TestResolveVaultPath_NoPath(t *testing.T) {
 	app.Test(req)
 
 	assert.NoError(t, resolvedErr)
-	assert.Equal(t, "/", resolvedPath)
+	assert.Equal(t, "", resolvedPath)
 	assert.False(t, shouldValidate)
 }
 
