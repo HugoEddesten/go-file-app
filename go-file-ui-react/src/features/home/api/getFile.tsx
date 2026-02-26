@@ -1,17 +1,17 @@
 
 
-import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../../../lib/api";
 import type { FileMetadata } from "../types";
 
-const getFile = async (path: string): Promise<FileMetadata> => {
-  const response = await api.get(`files/1/metadata/${path}`);
+const getFile = async (path: string, vaultId: number): Promise<FileMetadata> => {
+  const response = await api.get(`files/${vaultId}/metadata${path}`);
   return response.data;
 };
 
-export const useFileDetails = ({ path }: { path: string; }) => {
+export const useFileDetails = ({ path, vaultId }: { path: string; vaultId: number }) => {
   return useQuery({
-    queryKey: ["file-metadata", 1, path],
-    queryFn: () => getFile(path),
+    queryKey: ["file-metadata", vaultId, path],
+    queryFn: () => getFile(path, vaultId),
   });
 };

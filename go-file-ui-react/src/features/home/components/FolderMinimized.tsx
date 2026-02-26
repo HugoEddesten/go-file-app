@@ -16,6 +16,8 @@ import { ShareVaultModal } from "./ShareVaultModal";
 import { useVaults } from "../../vaults/api/getVaults";
 import { MaximizedSpinner } from "../../../components/ui/maximizedSpinner";
 import { FolderUser } from "../../../components/ui/FolderUser";
+import { useRenameFile } from "../api/renameFile";
+import { Input } from "../../../components/ui/input";
 
 export const FolderMinimized = ({
   file,
@@ -27,15 +29,21 @@ export const FolderMinimized = ({
   vaultId: number;
 }) => {
   const [isOver, setIsOver] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const { data: vaults } = useVaults({});
-  
+
   if (!vaults) {
-    return <MaximizedSpinner />
+    return <MaximizedSpinner />;
   }
-  
-  const currentVault = vaults.find(v => v.id === vaultId)
+
+  const { mutateAsync: renameFileAsync } = useRenameFile({
+    path: file.Key,
+    vaultId,
+  });
+
+  const currentVault = vaults.find((v) => v.id === vaultId);
 
   const handleDownload = () => {
     window.location.href = `${
@@ -69,19 +77,42 @@ export const FolderMinimized = ({
             className={cn(isOver && "text-primary")}
           >
             <div className="flex justify-center w-full bg-card">
-              {currentVault?.users.some(vu => vu.path === file.Key) ? (
+              {currentVault?.users.some((vu) => vu.path === file.Key) ? (
                 <FolderUser />
               ) : (
                 <Folder />
               )}
             </div>
-            <p
-              className={cn(
-                "text-center text-sm wrap-anywhere overflow-hidden truncate hover:overflow-visible hover:whitespace-break-spaces"
-              )}
+            <div
+              onDoubleClick={(e) => {
+                setIsRenaming(true);
+                e.stopPropagation();
+                e.preventDefault();
+              }}
             >
-              {file.Name}
-            </p>
+              {isRenaming ? (
+                <Input
+                  className="p-0 h-6 focus:ring-0!"
+                  defaultValue={file.Name}
+                  autoFocus
+                  onFocus={(e) => e.target.select()}
+                  onBlur={(e) => {
+                    setIsRenaming(false);
+                    if (e.target.value !== file.Name) {
+                      renameFileAsync(e.target.value);
+                    }
+                  }}
+                />
+              ) : (
+                <p
+                  className={cn(
+                    "text-center text-sm wrap-anywhere overflow-hidden truncate hover:overflow-visible hover:whitespace-break-spaces",
+                  )}
+                >
+                  {file.Name}
+                </p>
+              )}
+            </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-52">
             <ContextMenuItem onClick={() => handleDownload()}>

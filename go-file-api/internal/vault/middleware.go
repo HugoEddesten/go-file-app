@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"go-file-api/internal/locals"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -18,7 +19,7 @@ func VaultAccessMiddleware(
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
 
-		userId := c.Locals("userId").(int) // set by auth middleware
+		userId := locals.UserId(c) // set by auth middleware
 
 		requestedPath, shouldValidatePath, err := ResolveVaultPath(c)
 		if err != nil {
@@ -39,9 +40,9 @@ func VaultAccessMiddleware(
 		for _, vu := range vaultUsers {
 			if vu.Role <= requiredRole && (!shouldValidatePath || pathAllowed(vu.Path, requestedPath)) {
 				allowed = true
-				c.Locals("vaultRole", vu.Role)
+				locals.SetVaultRole(c, int(vu.Role))
 				if shouldValidatePath {
-					c.Locals("requestedVaultPath", requestedPath)
+					locals.SetRequestedVaultPath(c, requestedPath)
 				}
 				break
 			}
@@ -51,7 +52,7 @@ func VaultAccessMiddleware(
 			return fiber.NewError(fiber.StatusForbidden, "Insufficient access level")
 		}
 
-		c.Locals("vaultId", vaultId)
+		locals.SetVaultId(c, vaultId)
 
 		return c.Next()
 	}

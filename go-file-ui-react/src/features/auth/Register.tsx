@@ -2,14 +2,8 @@ import z from "zod";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardTitle } from "../../components/ui/card";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "../../components/ui/field";
+import { FieldGroup } from "../../components/ui/field";
 import { Form, FormDescription } from "../../components/ui/form";
-import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { register } from "./api/register";
 import { Link } from "react-router-dom";
@@ -57,35 +51,25 @@ export const Register = () => {
 
   return (
     <div className="flex w-full h-full items-center justify-center">
-      <Card className="p-4 w-xl flex justify-center">
+      <Card className="p-4 w-xl flex justify-center items-center">
         <CardTitle className="text-center text-2xl">
           Register an account
         </CardTitle>
         <Form {...form}>
           <form
-            className="flex flex-col items-center gap-4"
+            className="flex flex-col items-center gap-4 w-lg"
             onSubmit={form.handleSubmit(handleSubmit)}
           >
             <FieldGroup>
               <Controller
                 control={form.control}
                 name="email"
-                render={(state) => (
-                  <FormField 
-                    label="Email"
-                    {...state}
-                  />
-                )}
+                render={(state) => <FormField label="Email" {...state} />}
               />
               <Controller
                 control={form.control}
                 name="password"
-                render={(state) => (
-                  <FormField 
-                    label="Password"
-                    {...state}
-                  />
-                )}
+                render={(state) => <FormField label="Password" {...state} />}
               />
             </FieldGroup>
             <FormDescription>

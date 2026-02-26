@@ -2,9 +2,11 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/url"
+	"path"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -86,6 +88,75 @@ func (s *MinIOService) ListObjects(ctx context.Context, bucketName, prefix strin
 		Prefix:    prefix,
 		Recursive: recursive,
 	})
+}
+
+// StatObject gets metadata about an object without downloading it
+func (s *MinIOService) StatObject(ctx context.Context, bucketName, objectName string) (minio.ObjectInfo, error) {
+	return s.client.StatObject(ctx, bucketName, objectName, minio.StatObjectOptions{})
+}
+
+// ObjectExists returns true if an object exists in the bucket, false if it doesn't.
+// Any other error (network, auth, etc.) is returned as-is.
+func (s *MinIOService) ObjectExists(ctx context.Context, bucketName, objectName string) (bool, error) {
+	_, err := s.client.StatObject(ctx, bucketName, objectName, minio.StatObjectOptions{})
+	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// CopyObject performs a server-side copy of an object within the same bucket.
+func (s *MinIOService) CopyObject(ctx context.Context, bucketName, srcKey, dstKey string) error {
+	_, err := s.client.CopyObject(ctx,
+		minio.CopyDestOptions{Bucket: bucketName, Object: dstKey},
+		minio.CopySrcOptions{Bucket: bucketName, Object: srcKey},
+	)
+	return err
+}
+
+// NextAvailablePath finds the first unused name in a MinIO bucket directory.
+// For files (ext != "") it checks object existence via StatObject.
+// For folders (ext == "") it checks whether any objects exist under the candidate prefix.
+// Returns the full bucket key, the bare name, and any error.
+func (s *MinIOService) NextAvailablePath(ctx context.Context, bucket, dir, base, ext string) (string, string, error) {
+	available := func(name string) (bool, error) {
+		key := path.Join(dir, name)
+		if ext == "" {
+			for obj := range s.ListObjects(ctx, bucket, key+"/", false) {
+				if obj.Err != nil {
+					return false, obj.Err
+				} else {
+					return false, nil // prefix is occupied
+				}
+			}
+			return true, nil
+		}
+		exists, err := s.ObjectExists(ctx, bucket, key)
+		return !exists, err
+	}
+
+	name := base + ext
+	ok, err := available(name)
+	if err != nil {
+		return "", "", err
+	}
+	if ok {
+		return path.Join(dir, name), name, nil
+	}
+
+	for i := 2; ; i++ {
+		name = fmt.Sprintf("%s(%d)%s", base, i, ext)
+		ok, err = available(name)
+		if err != nil {
+			return "", "", err
+		}
+		if ok {
+			return path.Join(dir, name), name, nil
+		}
+	}
 }
 
 func (s *MinIOService) GetPresignedUrl(ctx context.Context, bucketName, objectName string, expires time.Duration) (*url.URL, error) {

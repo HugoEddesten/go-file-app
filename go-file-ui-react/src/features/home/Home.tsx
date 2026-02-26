@@ -35,6 +35,7 @@ export const Home = () => {
   const vaultId = useOutletContext() as number;
   const { data, isLoading } = useFiles({ vaultId: vaultId, path: currentDir });
   console.log(data)
+  
   const handleDrop = async (e: DragEvent) => {
     setIsDragging(false);
     const files = Array.from(e.dataTransfer?.files ?? []);

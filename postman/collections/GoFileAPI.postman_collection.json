@@ -283,7 +283,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "http://127.0.0.1:3000/files/1/list/",
+              "raw": "http://127.0.0.1:3000/files/3/list/",
               "protocol": "http",
               "host": [
                 "127",
@@ -294,7 +294,7 @@
               "port": "3000",
               "path": [
                 "files",
-                "1",
+                "3",
                 "list",
                 ""
               ]
@@ -326,7 +326,7 @@
               "formdata": []
             },
             "url": {
-              "raw": "http://127.0.0.1:3000/files/1/download/glencairn-whiskyglas-fylld-2868.jpg",
+              "raw": "http://127.0.0.1:3000/files/3/download/76.jpg",
               "protocol": "http",
               "host": [
                 "127",
@@ -337,9 +337,9 @@
               "port": "3000",
               "path": [
                 "files",
-                "1",
+                "3",
                 "download",
-                "glencairn-whiskyglas-fylld-2868.jpg"
+                "76.jpg"
               ]
             }
           },

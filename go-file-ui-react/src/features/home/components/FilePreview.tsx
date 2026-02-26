@@ -17,7 +17,7 @@ export const FilePreview = ({
     import.meta.env.VITE_API_URL
   }files/${vaultId}/download${fileKey}`;
 
-  const { data: meta, isLoading } = useFileDetails({ path: fileKey });
+  const { data: meta, isLoading } = useFileDetails({ path: fileKey, vaultId });
   console.log(meta);
   const renderPreview = () => {
     if (!meta) return;
@@ -50,7 +50,7 @@ export const FilePreview = ({
           <FieldGroup className="gap-2">
             <Field>
               <Label>Name</Label>
-              <Input value={meta?.name} />
+              <Input readOnly value={meta?.name} />
             </Field>
             <Field>
               <Label>Type</Label>
