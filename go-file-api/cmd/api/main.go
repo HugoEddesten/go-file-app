@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"log"
-	"os"
 	"time"
 
 	"go-file-api/db"
@@ -12,6 +11,7 @@ import (
 	internaldb "go-file-api/internal/db"
 	"go-file-api/internal/files"
 	"go-file-api/internal/jwt"
+	"go-file-api/internal/storage"
 	"go-file-api/internal/users"
 	"go-file-api/internal/vault"
 
@@ -42,6 +42,8 @@ func main() {
 		log.Println("✅ Database schema initialized successfully")
 	}
 
+	minIOService, err := storage.InitializeStorage()
+
 	jwtService := jwt.New("my_secret_key_123", "go-file-api", time.Hour*24)
 	jwtMiddleware := jwt.Protected(jwtService)
 
@@ -57,10 +59,8 @@ func main() {
 	}))
 
 	auth.RegisterRoutes(app, &userRepo, &vaultRepo, jwtService)
-	files.RegisterRoutes(app, &vaultRepo, jwtMiddleware)
+	files.RegisterRoutes(app, &vaultRepo, minIOService, jwtMiddleware)
 	vault.RegisterRoutes(app, &userRepo, &vaultRepo, jwtMiddleware)
-
-	os.MkdirAll("uploads", os.ModePerm)
 
 	if err := app.Listen(":3000"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

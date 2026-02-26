@@ -1,6 +1,10 @@
 package jwt
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"go-file-api/internal/locals"
+
+	"github.com/gofiber/fiber/v2"
+)
 
 func Protected(jwtService *JWTService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -18,8 +22,8 @@ func Protected(jwtService *JWTService) fiber.Handler {
 			})
 		}
 
-		c.Locals("userId", claims.UserId)
-		c.Locals("email", claims.Email)
+		locals.SetUserId(c, claims.UserId)
+		locals.SetEmail(c, claims.Email)
 
 		return c.Next()
 	}

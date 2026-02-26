@@ -2,29 +2,35 @@ package files
 
 import (
 	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
+	"go-file-api/internal/locals"
+	"go-file-api/internal/storage"
+	"path"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func UploadFile() fiber.Handler {
+func UploadFile(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		vaultId := c.Locals("vaultId").(int)
-		fileKey := c.Locals("requestedVaultPath")
+		vaultId := locals.VaultId(c)
+		fileKey := locals.RequestedVaultPath(c)
 
 		file, err := c.FormFile("file")
 		if err != nil {
 			return err
 		}
 
-		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
-		os.MkdirAll(path, os.ModePerm)
+		fileReader, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer fileReader.Close()
 
-		savePath := filepath.Join(path, file.Filename)
-		err = c.SaveFile(file, savePath)
+		prefix := fmt.Sprintf("vault-%d%s", vaultId, fileKey)
+		savePath := path.Join(prefix, file.Filename)
+		contentType := getContentType(fileReader)
+
+		err = minIOService.UploadObject(c.Context(), "file-vault", savePath, fileReader, -1, contentType)
 		if err != nil {
 			return err
 		}
@@ -37,131 +43,124 @@ func UploadFile() fiber.Handler {
 	}
 }
 
-func CreateFile() fiber.Handler {
+func CreateFile(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		vaultId := c.Locals("vaultId").(int)
-		parentDirKey := c.Locals("requestedVaultPath")
+		vaultId := locals.VaultId(c)
+		parentDirKey := locals.RequestedVaultPath(c)
 		ext := c.Query("ext")
 
-		baseDir := fmt.Sprintf("./uploads/%d/%s", vaultId, parentDirKey)
-
-		if err := os.MkdirAll(baseDir, os.ModePerm); err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError)
-		}
-
+		bucketDir := getBucketPath(vaultId, parentDirKey)
 		const baseName = "new"
 
-		fullPath, name, err := nextAvailablePath(baseDir, baseName, ext)
+		bucketKey, name, err := minIOService.NextAvailablePath(c.Context(), "file-vault", bucketDir, baseName, ext)
 		if err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError)
 		}
 
 		if ext == "" {
-			if err := os.MkdirAll(fullPath, os.ModePerm); err != nil {
+			// Represent the folder with a trailing-slash placeholder object
+			folderKey := bucketKey + "/"
+			if err := minIOService.UploadObject(c.Context(), "file-vault", folderKey, strings.NewReader(""), 0, "application/x-directory"); err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError)
 			}
 			return c.SendStatus(fiber.StatusCreated)
-		} else {
-			file, err := os.Create(fullPath)
-			if err != nil {
-				return fiber.NewError(fiber.StatusInternalServerError)
-			}
-			defer file.Close()
 		}
 
-		clientFileKey := getClientKeyFromFilePath(fullPath)
+		if err := minIOService.UploadObject(c.Context(), "file-vault", bucketKey, strings.NewReader(""), 0, "application/octet-stream"); err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
 
 		return c.Status(fiber.StatusCreated).JSON(FileResponse{
 			Name: name,
-			Key:  clientFileKey,
+			Key:  getClientKeyFromBucketPath(bucketKey),
 		})
 	}
 }
 
-func DownloadFile() fiber.Handler {
+func DownloadFile(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		vaultId := c.Locals("vaultId").(int)
-		fileKey := c.Locals("requestedVaultPath")
+		vaultId := locals.VaultId(c)
+		fileKey := locals.RequestedVaultPath(c)
 		action := c.Query("action", "send")
 
-		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
+		objectPath := fmt.Sprintf("vault-%d%s", vaultId, fileKey)
 
-		file, err := os.Open(path)
+		stat, err := minIOService.StatObject(c.Context(), "file-vault", objectPath)
 		if err != nil {
-			return fiber.NewError(fiber.StatusNotFound, "file not found")
+			return c.Status(fiber.StatusNotFound).SendString("File not found")
 		}
-		defer file.Close()
 
-		buffer := make([]byte, 512)
-		_, _ = file.Read(buffer)
-		contentType := http.DetectContentType(buffer)
+		object, err := minIOService.DownloadObject(c.Context(), "file-vault", objectPath)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("Unable to download file")
+		}
 
-		c.Set("Content-Type", contentType)
+		filename := path.Base(fileKey)
 
+		c.Set(fiber.HeaderContentType, stat.ContentType)
+
+		// Set Content-Disposition based on action
 		if action == "download" {
-			return c.Download(path)
+			c.Set(fiber.HeaderContentDisposition, fmt.Sprintf("attachment; filename=\"%s\"", filename))
+		} else {
+			c.Set(fiber.HeaderContentDisposition, fmt.Sprintf("inline; filename=\"%s\"", filename))
 		}
-		return c.SendFile(path)
+
+		return c.SendStream(object)
 	}
 }
 
-func GetMetadata() fiber.Handler {
+func GetMetadata(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		vaultId := c.Locals("vaultId").(int)
+		vaultId := locals.VaultId(c)
 
-		fileKey := c.Locals("requestedVaultPath")
-		path := fmt.Sprintf("./uploads/%d/%s", vaultId, fileKey)
+		clientKey := locals.RequestedVaultPath(c)
+		fileKey := getBucketPath(vaultId, clientKey)
 
-		file, err := os.Open(path)
+		objectInfo, err := minIOService.StatObject(c.Context(), "file-vault", fileKey)
 		if err != nil {
-			return fiber.ErrNotFound
+			return c.Status(fiber.StatusNotFound).SendString("File not found")
 		}
-		defer file.Close()
-
-		stat, _ := file.Stat()
-
-		buffer := make([]byte, 512)
-		file.Read(buffer)
-		mimeType := http.DetectContentType(buffer)
 
 		meta := FileMetadata{
-			Name:        stat.Name(),
-			MimeType:    mimeType,
-			Size:        stat.Size(),
-			Editable:    strings.HasPrefix(mimeType, "text/"),
-			Previewable: isPreviewable(mimeType),
+			Name:        path.Base(objectInfo.Key),
+			MimeType:    objectInfo.ContentType,
+			Size:        objectInfo.Size,
+			Editable:    strings.HasPrefix(objectInfo.ContentType, "text/"),
+			Previewable: isPreviewable(objectInfo.ContentType),
 		}
 
 		return c.JSON(meta)
 	}
 }
 
-func ListFiles() fiber.Handler {
+func ListFiles(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		vaultId := c.Locals("vaultId").(int)
-		fileKey := c.Locals("requestedVaultPath")
+		vaultId := locals.VaultId(c)
+		requestedKey := locals.RequestedVaultPath(c)
 
-		path := fmt.Sprintf("./uploads/%d%s", vaultId, fileKey)
-
-		files := make([]FileResponse, 0)
-
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return c.JSON(files)
+		fileKey := getBucketPath(vaultId, requestedKey)
+		if !strings.HasSuffix(fileKey, "/") {
+			fileKey += "/"
 		}
+		files := make([]FileResponse, 0)
+		entries := minIOService.ListObjects(c.Context(), "file-vault", fileKey, false)
 
-		for _, entry := range entries {
-			var key string
-			if fileKey == "/" {
-				key = fmt.Sprintf("/%s", entry.Name())
-
-			} else {
-				key = fmt.Sprintf("%s/%s", fileKey, entry.Name())
+		for entry := range entries {
+			if entry.Err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": entry.Err.Error()})
 			}
 
+			// Skip the folder placeholder for the listed directory itself
+			if entry.Key == fileKey {
+				continue
+			}
+
+			clientKey := getClientKeyFromFilePath(entry.Key)
+
 			files = append(files, FileResponse{
-				Name: entry.Name(),
-				Key:  key,
+				Name: path.Base(entry.Key),
+				Key:  clientKey,
 			})
 		}
 
@@ -169,175 +168,109 @@ func ListFiles() fiber.Handler {
 	}
 }
 
-func SearchFiles() fiber.Handler {
+func SearchFiles(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		vaultId := c.Locals("vaultId").(int)
+		vaultId := locals.VaultId(c)
 		search := c.Query("q")
 		if search == "" {
 			return c.Status(fiber.StatusBadRequest).SendString("Missing query parameter 'q'")
 		}
+
+		prefix := getBucketPath(vaultId, "/")
+		entries := minIOService.ListObjects(c.Context(), "file-vault", prefix, true)
+
 		var matches []string
-
-		root := fmt.Sprintf("./uploads/%d", vaultId)
-		filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-			if err != nil {
-				return err
+		for entry := range entries {
+			if entry.Err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": entry.Err.Error()})
 			}
-
-			if !d.IsDir() {
-				filename := filepath.Base(path)
-				if strings.Contains(strings.ToLower(filename), search) {
-					matches = append(matches, filename)
-				}
+			filename := path.Base(entry.Key)
+			if strings.Contains(strings.ToLower(filename), strings.ToLower(search)) {
+				matches = append(matches, filename)
 			}
-
-			return nil
-		})
+		}
 
 		return c.JSON(matches)
 	}
 }
 
-func RenameFile() fiber.Handler {
+func RenameFile(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		vaultId := c.Locals("vaultId").(int)
+		vaultId := locals.VaultId(c)
+		fileKey := locals.RequestedVaultPath(c)
 
-		// Get the original file/folder path from middleware
-		// The VaultAccessMiddleware already resolved and cleaned the path
-		fileKey := c.Locals("requestedVaultPath").(string)
-
-		// Parse request body for new name
 		var req RenameRequest
 		if err := c.BodyParser(&req); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 		}
 
-		// Validate new name
 		if req.NewName == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "newName is required")
 		}
 
-		// Prevent path traversal attacks
 		if strings.Contains(req.NewName, "/") || strings.Contains(req.NewName, "\\") {
 			return fiber.NewError(fiber.StatusBadRequest, "newName cannot contain path separators")
 		}
 
-		// Construct old and new paths
-		oldPath := fmt.Sprintf("./uploads/%d%s", vaultId, fileKey)
+		oldBucketPath := getBucketPath(vaultId, fileKey)
+		newClientKey := path.Join(path.Dir(fileKey), req.NewName)
+		newBucketPath := getBucketPath(vaultId, newClientKey)
 
-		// Get parent directory
-		parentDir := filepath.Dir(oldPath)
-		newPath := filepath.Join(parentDir, req.NewName)
+		// Check if source is a single file
+		_, err := minIOService.StatObject(c.Context(), "file-vault", oldBucketPath)
+		if err == nil {
+			// It's a file — check for conflict then copy+delete
+			if exists, _ := minIOService.ObjectExists(c.Context(), "file-vault", newBucketPath); exists {
+				return fiber.NewError(fiber.StatusConflict, "a file or folder with that name already exists")
+			}
+			if err := minIOService.CopyObject(c.Context(), "file-vault", oldBucketPath, newBucketPath); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "failed to rename file")
+			}
+			if err := minIOService.DeleteObject(c.Context(), "file-vault", oldBucketPath); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "failed to clean up original file")
+			}
+		} else {
+			// Treat as a folder — collect all objects under the old prefix
+			oldPrefix := oldBucketPath + "/"
+			newPrefix := newBucketPath + "/"
 
-		// Check if old path exists
-		stat, err := os.Stat(oldPath)
-		if os.IsNotExist(err) {
-			return fiber.NewError(fiber.StatusNotFound, "file or folder not found")
+			var keys []string
+			for obj := range minIOService.ListObjects(c.Context(), "file-vault", oldPrefix, true) {
+				if obj.Err != nil {
+					return fiber.NewError(fiber.StatusInternalServerError, "failed to list objects")
+				}
+				keys = append(keys, obj.Key)
+			}
+
+			if len(keys) == 0 {
+				return fiber.NewError(fiber.StatusNotFound, "file or folder not found")
+			}
+
+			// Check for conflict at the destination prefix
+			for obj := range minIOService.ListObjects(c.Context(), "file-vault", newPrefix, false) {
+				if obj.Err == nil {
+					return fiber.NewError(fiber.StatusConflict, "a file or folder with that name already exists")
+				} else {
+					break
+				}
+			}
+
+			// Copy each object to the new prefix, then delete the original
+			for _, key := range keys {
+				suffix := strings.TrimPrefix(key, oldPrefix)
+				newKey := newPrefix + suffix
+				if err := minIOService.CopyObject(c.Context(), "file-vault", key, newKey); err != nil {
+					return fiber.NewError(fiber.StatusInternalServerError, "failed to rename folder")
+				}
+				if err := minIOService.DeleteObject(c.Context(), "file-vault", key); err != nil {
+					return fiber.NewError(fiber.StatusInternalServerError, "failed to clean up original objects")
+				}
+			}
 		}
-
-		// Check if new path already exists
-		if _, err := os.Stat(newPath); err == nil {
-			return fiber.NewError(fiber.StatusConflict, "a file or folder with that name already exists")
-		}
-
-		// Try to rename with retry logic for Windows file locking issues
-		if err := rename(oldPath, newPath, stat.IsDir()); err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "failed to rename file or folder")
-		}
-
-		// Generate new client key
-		clientKey := getClientKeyFromFilePath(newPath)
 
 		return c.JSON(FileResponse{
 			Name: req.NewName,
-			Key:  clientKey,
+			Key:  newClientKey,
 		})
 	}
-}
-
-// renameWithFallback attempts to rename a file or directory using os.Rename with retries.
-// If that fails (common on Windows due to file locking), it falls back to copy-then-delete.
-func rename(oldPath, newPath string, isDir bool) error {
-	if isDir {
-		// For directories, use recursive copy
-		if err := copyDir(oldPath, newPath); err != nil {
-			return err
-		}
-	} else {
-		// For files, use file copy
-		if err := copyFile(oldPath, newPath); err != nil {
-			fmt.Print(err.Error())
-			return err
-		}
-	}
-
-	// If copy succeeded, remove the old path
-	// Use RemoveAll to handle both files and directories
-	return os.RemoveAll(oldPath)
-}
-
-// copyFile copies a single file from src to dst, preserving permissions
-func copyFile(src, dst string) error {
-	sourceFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer sourceFile.Close()
-
-	// Get source file info for permissions
-	sourceInfo, err := sourceFile.Stat()
-	if err != nil {
-		return err
-	}
-
-	// Create destination file with same permissions
-	destFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, sourceInfo.Mode())
-	if err != nil {
-		return err
-	}
-	defer destFile.Close()
-
-	// Copy file contents
-	_, err = sourceFile.WriteTo(destFile)
-	return err
-}
-
-// copyDir recursively copies a directory from src to dst
-func copyDir(src, dst string) error {
-	// Get source directory info
-	srcInfo, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-
-	// Create destination directory with same permissions
-	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
-		return err
-	}
-
-	// Read directory contents
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	// Copy each entry
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		if entry.IsDir() {
-			// Recursively copy subdirectory
-			if err := copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		} else {
-			// Copy file
-			if err := copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }

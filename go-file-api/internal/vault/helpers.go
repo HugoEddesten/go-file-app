@@ -45,7 +45,7 @@ func ResolveVaultPath(c *fiber.Ctx) (string, bool, error) {
 		}
 	}
 
-	return "/", false, nil
+	return "", false, nil
 }
 
 func ResolveVaultId(c *fiber.Ctx) (int, error) {
