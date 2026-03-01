@@ -81,7 +81,7 @@ export const ShareVaultModal = ({
               <Controller
                 name="email"
                 control={form.control}
-                render={({ field, fieldState }) => (
+                render={({ field }) => (
                   <Field>
                     <Label>Email</Label>
                     <Input autoComplete="off" {...field} value={field.value} />
@@ -91,7 +91,7 @@ export const ShareVaultModal = ({
               <Controller
                 name="role"
                 control={form.control}
-                render={({ field, fieldState }) => (
+                render={({ field }) => (
                   <Field>
                     <Label>Role</Label>
                     <Combobox
@@ -107,7 +107,7 @@ export const ShareVaultModal = ({
               <Controller
                 name="path"
                 control={form.control}
-                render={({ field, fieldState }) => (
+                render={({ field }) => (
                   <Field>
                     <Label>Share from path</Label>
                     <Input autoComplete="off" {...field} value={field.value} />

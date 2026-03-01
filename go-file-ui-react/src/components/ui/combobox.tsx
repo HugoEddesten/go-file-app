@@ -1,4 +1,3 @@
-import * as React from "react";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { Button } from "./button";
@@ -64,7 +63,7 @@ export function Combobox<TValue>({
                   <CheckIcon
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === item.value ? "opacity-100" : "opacity-0"
+                      value === item.value ? "opacity-100" : "opacity-0",
                     )}
                   />
                   {item.label}

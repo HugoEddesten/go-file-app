@@ -30,7 +30,7 @@ func UploadFile(minIOService *storage.MinIOService) fiber.Handler {
 		savePath := path.Join(prefix, file.Filename)
 		contentType := getContentType(fileReader)
 
-		err = minIOService.UploadObject(c.Context(), "file-vault", savePath, fileReader, -1, contentType)
+		err = minIOService.UploadObject(c.Context(), storage.VaultBucket, savePath, fileReader, -1, contentType)
 		if err != nil {
 			return err
 		}
@@ -52,7 +52,7 @@ func CreateFile(minIOService *storage.MinIOService) fiber.Handler {
 		bucketDir := getBucketPath(vaultId, parentDirKey)
 		const baseName = "new"
 
-		bucketKey, name, err := minIOService.NextAvailablePath(c.Context(), "file-vault", bucketDir, baseName, ext)
+		bucketKey, name, err := minIOService.NextAvailablePath(c.Context(), storage.VaultBucket, bucketDir, baseName, ext)
 		if err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError)
 		}
@@ -60,13 +60,13 @@ func CreateFile(minIOService *storage.MinIOService) fiber.Handler {
 		if ext == "" {
 			// Represent the folder with a trailing-slash placeholder object
 			folderKey := bucketKey + "/"
-			if err := minIOService.UploadObject(c.Context(), "file-vault", folderKey, strings.NewReader(""), 0, "application/x-directory"); err != nil {
+			if err := minIOService.UploadObject(c.Context(), storage.VaultBucket, folderKey, strings.NewReader(""), 0, "application/x-directory"); err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError)
 			}
 			return c.SendStatus(fiber.StatusCreated)
 		}
 
-		if err := minIOService.UploadObject(c.Context(), "file-vault", bucketKey, strings.NewReader(""), 0, "application/octet-stream"); err != nil {
+		if err := minIOService.UploadObject(c.Context(), storage.VaultBucket, bucketKey, strings.NewReader(""), 0, "application/octet-stream"); err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError)
 		}
 
@@ -85,12 +85,12 @@ func DownloadFile(minIOService *storage.MinIOService) fiber.Handler {
 
 		objectPath := fmt.Sprintf("vault-%d%s", vaultId, fileKey)
 
-		stat, err := minIOService.StatObject(c.Context(), "file-vault", objectPath)
+		stat, err := minIOService.StatObject(c.Context(), storage.VaultBucket, objectPath)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).SendString("File not found")
 		}
 
-		object, err := minIOService.DownloadObject(c.Context(), "file-vault", objectPath)
+		object, err := minIOService.DownloadObject(c.Context(), storage.VaultBucket, objectPath)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString("Unable to download file")
 		}
@@ -117,7 +117,7 @@ func GetMetadata(minIOService *storage.MinIOService) fiber.Handler {
 		clientKey := locals.RequestedVaultPath(c)
 		fileKey := getBucketPath(vaultId, clientKey)
 
-		objectInfo, err := minIOService.StatObject(c.Context(), "file-vault", fileKey)
+		objectInfo, err := minIOService.StatObject(c.Context(), storage.VaultBucket, fileKey)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).SendString("File not found")
 		}
@@ -144,7 +144,7 @@ func ListFiles(minIOService *storage.MinIOService) fiber.Handler {
 			fileKey += "/"
 		}
 		files := make([]FileResponse, 0)
-		entries := minIOService.ListObjects(c.Context(), "file-vault", fileKey, false)
+		entries := minIOService.ListObjects(c.Context(), storage.VaultBucket, fileKey, false)
 
 		for entry := range entries {
 			if entry.Err != nil {
@@ -177,7 +177,7 @@ func SearchFiles(minIOService *storage.MinIOService) fiber.Handler {
 		}
 
 		prefix := getBucketPath(vaultId, "/")
-		entries := minIOService.ListObjects(c.Context(), "file-vault", prefix, true)
+		entries := minIOService.ListObjects(c.Context(), storage.VaultBucket, prefix, true)
 
 		var matches []string
 		for entry := range entries {
@@ -217,16 +217,16 @@ func RenameFile(minIOService *storage.MinIOService) fiber.Handler {
 		newBucketPath := getBucketPath(vaultId, newClientKey)
 
 		// Check if source is a single file
-		_, err := minIOService.StatObject(c.Context(), "file-vault", oldBucketPath)
+		_, err := minIOService.StatObject(c.Context(), storage.VaultBucket, oldBucketPath)
 		if err == nil {
 			// It's a file — check for conflict then copy+delete
-			if exists, _ := minIOService.ObjectExists(c.Context(), "file-vault", newBucketPath); exists {
+			if exists, _ := minIOService.ObjectExists(c.Context(), storage.VaultBucket, newBucketPath); exists {
 				return fiber.NewError(fiber.StatusConflict, "a file or folder with that name already exists")
 			}
-			if err := minIOService.CopyObject(c.Context(), "file-vault", oldBucketPath, newBucketPath); err != nil {
+			if err := minIOService.CopyObject(c.Context(), storage.VaultBucket, oldBucketPath, newBucketPath); err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "failed to rename file")
 			}
-			if err := minIOService.DeleteObject(c.Context(), "file-vault", oldBucketPath); err != nil {
+			if err := minIOService.DeleteObject(c.Context(), storage.VaultBucket, oldBucketPath); err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "failed to clean up original file")
 			}
 		} else {
@@ -235,7 +235,7 @@ func RenameFile(minIOService *storage.MinIOService) fiber.Handler {
 			newPrefix := newBucketPath + "/"
 
 			var keys []string
-			for obj := range minIOService.ListObjects(c.Context(), "file-vault", oldPrefix, true) {
+			for obj := range minIOService.ListObjects(c.Context(), storage.VaultBucket, oldPrefix, true) {
 				if obj.Err != nil {
 					return fiber.NewError(fiber.StatusInternalServerError, "failed to list objects")
 				}
@@ -247,7 +247,7 @@ func RenameFile(minIOService *storage.MinIOService) fiber.Handler {
 			}
 
 			// Check for conflict at the destination prefix
-			for obj := range minIOService.ListObjects(c.Context(), "file-vault", newPrefix, false) {
+			for obj := range minIOService.ListObjects(c.Context(), storage.VaultBucket, newPrefix, false) {
 				if obj.Err == nil {
 					return fiber.NewError(fiber.StatusConflict, "a file or folder with that name already exists")
 				} else {
@@ -259,10 +259,10 @@ func RenameFile(minIOService *storage.MinIOService) fiber.Handler {
 			for _, key := range keys {
 				suffix := strings.TrimPrefix(key, oldPrefix)
 				newKey := newPrefix + suffix
-				if err := minIOService.CopyObject(c.Context(), "file-vault", key, newKey); err != nil {
+				if err := minIOService.CopyObject(c.Context(), storage.VaultBucket, key, newKey); err != nil {
 					return fiber.NewError(fiber.StatusInternalServerError, "failed to rename folder")
 				}
-				if err := minIOService.DeleteObject(c.Context(), "file-vault", key); err != nil {
+				if err := minIOService.DeleteObject(c.Context(), storage.VaultBucket, key); err != nil {
 					return fiber.NewError(fiber.StatusInternalServerError, "failed to clean up original objects")
 				}
 			}

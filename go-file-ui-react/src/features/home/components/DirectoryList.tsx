@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
-import { Card, CardContent } from "../../../components/ui/card";
+import { Card } from "../../../components/ui/card";
 import { MaximizedSpinner } from "../../../components/ui/maximizedSpinner";
 import { useAuth } from "../../../hooks/useAuth";
 import { useVaults } from "../../vaults/api/getVaults";
