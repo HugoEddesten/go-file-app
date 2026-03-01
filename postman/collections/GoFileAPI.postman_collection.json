@@ -19,7 +19,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"email\": \"email@local.com\",\r\n    \"password\": \"Password123\"\r\n}",
+              "raw": "{\r\n    \"email\": \"admin2@local.com\",\r\n    \"password\": \"admin123\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -134,7 +134,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"vaultUserId\": 4,\r\n    \"role\": 3,\r\n    \"path\": \"/new\"\r\n}",
+              "raw": "{\r\n    \"vaultUserId\": 8,\r\n    \"role\": 2,\r\n    \"path\": \"/The collection\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -142,7 +142,7 @@
               }
             },
             "url": {
-              "raw": "http://127.0.0.1:3000/vault/update-vault-user/1",
+              "raw": "http://127.0.0.1:3000/vault/update-vault-user/4",
               "protocol": "http",
               "host": [
                 "127",
@@ -154,7 +154,7 @@
               "path": [
                 "vault",
                 "update-vault-user",
-                "1"
+                "4"
               ]
             }
           },
@@ -181,7 +181,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"path\": \"/\",\r\n    \"role\": 3,\r\n    \"email\": \"hugo.eddesten2@gmail.com\"\r\n}",
+              "raw": "{\r\n    \"path\": \"/\",\r\n    \"role\": 4,\r\n    \"email\": \"admin3@local.com\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -189,7 +189,7 @@
               }
             },
             "url": {
-              "raw": "http://127.0.0.1:3000/vault/assign-user/1",
+              "raw": "http://127.0.0.1:3000/vault/assign-user/4",
               "protocol": "http",
               "host": [
                 "127",
@@ -201,7 +201,7 @@
               "path": [
                 "vault",
                 "assign-user",
-                "1"
+                "4"
               ]
             }
           },
@@ -253,6 +253,40 @@
             "header": [],
             "url": {
               "raw": ""
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "RemoveUserFromVault",
+          "id": "4c0b860f-aae9-4a08-bf89-865cbcb5703c",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"userId\": 75\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://127.0.0.1:3000/vault/remove-user/4",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "3000",
+              "path": [
+                "vault",
+                "remove-user",
+                "4"
+              ]
             }
           },
           "response": []

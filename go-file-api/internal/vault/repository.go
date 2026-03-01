@@ -205,6 +205,37 @@ func (r *Repository) GetVault(ctx context.Context, vaultId int) (*VaultWithUsers
 	return vault, nil
 }
 
+func (r *Repository) DeleteVaultUsersByIds(ctx context.Context, ids []int) ([]VaultUser, error) {
+	rows, err := r.DB.Query(ctx, `
+		DELETE FROM vault_users
+		WHERE id = ANY($1)
+		RETURNING id, vault_id, user_id, path, role, created_at, updated_at
+	`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []VaultUser
+	for rows.Next() {
+		var vu VaultUser
+		if err := rows.Scan(
+			&vu.Id,
+			&vu.VaultId,
+			&vu.UserId,
+			&vu.Path,
+			&vu.Role,
+			&vu.CreatedAt,
+			&vu.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, vu)
+	}
+
+	return result, rows.Err()
+}
+
 func (r *Repository) GetVaultsForUser(
 	ctx context.Context,
 	userId int,

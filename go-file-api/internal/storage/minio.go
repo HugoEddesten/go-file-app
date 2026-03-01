@@ -62,8 +62,8 @@ func (s *MinIOService) EnsureBucket(ctx context.Context, bucketName string) erro
 // reader: the file content
 // objectSize: size in bytes (-1 if unknown, MinIO will buffer it)
 // contentType: MIME type (e.g., "application/pdf", "image/png")
-func (s *MinIOService) UploadObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, contentType string) error {
-	_, err := s.client.PutObject(ctx, bucketName, objectName, reader, objectSize, minio.PutObjectOptions{
+func (s *MinIOService) UploadObject(ctx context.Context, bucketName Bucket, objectName string, reader io.Reader, objectSize int64, contentType string) error {
+	_, err := s.client.PutObject(ctx, string(bucketName), objectName, reader, objectSize, minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	return err
@@ -71,34 +71,34 @@ func (s *MinIOService) UploadObject(ctx context.Context, bucketName, objectName 
 
 // DownloadObject retrieves a file from MinIO
 // Returns a reader - don't forget to close it when done!
-func (s *MinIOService) DownloadObject(ctx context.Context, bucketName, objectName string) (*minio.Object, error) {
-	return s.client.GetObject(ctx, bucketName, objectName, minio.GetObjectOptions{})
+func (s *MinIOService) DownloadObject(ctx context.Context, bucketName Bucket, objectName string) (*minio.Object, error) {
+	return s.client.GetObject(ctx, string(bucketName), objectName, minio.GetObjectOptions{})
 }
 
 // DeleteObject removes a file from MinIO
-func (s *MinIOService) DeleteObject(ctx context.Context, bucketName, objectName string) error {
-	return s.client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+func (s *MinIOService) DeleteObject(ctx context.Context, bucketName Bucket, objectName string) error {
+	return s.client.RemoveObject(ctx, string(bucketName), objectName, minio.RemoveObjectOptions{})
 }
 
 // ListObjects lists all objects with a given prefix
 // prefix: filter objects by prefix (e.g., "vault-123/" to list all files in vault 123)
 // Set recursive to true to list all objects in subdirectories
-func (s *MinIOService) ListObjects(ctx context.Context, bucketName, prefix string, recursive bool) <-chan minio.ObjectInfo {
-	return s.client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{
+func (s *MinIOService) ListObjects(ctx context.Context, bucketName Bucket, prefix string, recursive bool) <-chan minio.ObjectInfo {
+	return s.client.ListObjects(ctx, string(bucketName), minio.ListObjectsOptions{
 		Prefix:    prefix,
 		Recursive: recursive,
 	})
 }
 
 // StatObject gets metadata about an object without downloading it
-func (s *MinIOService) StatObject(ctx context.Context, bucketName, objectName string) (minio.ObjectInfo, error) {
-	return s.client.StatObject(ctx, bucketName, objectName, minio.StatObjectOptions{})
+func (s *MinIOService) StatObject(ctx context.Context, bucketName Bucket, objectName string) (minio.ObjectInfo, error) {
+	return s.client.StatObject(ctx, string(bucketName), objectName, minio.StatObjectOptions{})
 }
 
 // ObjectExists returns true if an object exists in the bucket, false if it doesn't.
 // Any other error (network, auth, etc.) is returned as-is.
-func (s *MinIOService) ObjectExists(ctx context.Context, bucketName, objectName string) (bool, error) {
-	_, err := s.client.StatObject(ctx, bucketName, objectName, minio.StatObjectOptions{})
+func (s *MinIOService) ObjectExists(ctx context.Context, bucketName Bucket, objectName string) (bool, error) {
+	_, err := s.client.StatObject(ctx, string(bucketName), objectName, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			return false, nil
@@ -109,10 +109,10 @@ func (s *MinIOService) ObjectExists(ctx context.Context, bucketName, objectName 
 }
 
 // CopyObject performs a server-side copy of an object within the same bucket.
-func (s *MinIOService) CopyObject(ctx context.Context, bucketName, srcKey, dstKey string) error {
+func (s *MinIOService) CopyObject(ctx context.Context, bucketName Bucket, srcKey, dstKey string) error {
 	_, err := s.client.CopyObject(ctx,
-		minio.CopyDestOptions{Bucket: bucketName, Object: dstKey},
-		minio.CopySrcOptions{Bucket: bucketName, Object: srcKey},
+		minio.CopyDestOptions{Bucket: string(bucketName), Object: dstKey},
+		minio.CopySrcOptions{Bucket: string(bucketName), Object: srcKey},
 	)
 	return err
 }
@@ -121,11 +121,11 @@ func (s *MinIOService) CopyObject(ctx context.Context, bucketName, srcKey, dstKe
 // For files (ext != "") it checks object existence via StatObject.
 // For folders (ext == "") it checks whether any objects exist under the candidate prefix.
 // Returns the full bucket key, the bare name, and any error.
-func (s *MinIOService) NextAvailablePath(ctx context.Context, bucket, dir, base, ext string) (string, string, error) {
+func (s *MinIOService) NextAvailablePath(ctx context.Context, bucketName Bucket, dir, base, ext string) (string, string, error) {
 	available := func(name string) (bool, error) {
 		key := path.Join(dir, name)
 		if ext == "" {
-			for obj := range s.ListObjects(ctx, bucket, key+"/", false) {
+			for obj := range s.ListObjects(ctx, bucketName, key+"/", false) {
 				if obj.Err != nil {
 					return false, obj.Err
 				} else {
@@ -134,7 +134,7 @@ func (s *MinIOService) NextAvailablePath(ctx context.Context, bucket, dir, base,
 			}
 			return true, nil
 		}
-		exists, err := s.ObjectExists(ctx, bucket, key)
+		exists, err := s.ObjectExists(ctx, bucketName, key)
 		return !exists, err
 	}
 
@@ -159,8 +159,8 @@ func (s *MinIOService) NextAvailablePath(ctx context.Context, bucket, dir, base,
 	}
 }
 
-func (s *MinIOService) GetPresignedUrl(ctx context.Context, bucketName, objectName string, expires time.Duration) (*url.URL, error) {
-	return s.client.PresignedGetObject(ctx, bucketName, objectName, expires, nil)
+func (s *MinIOService) GetPresignedUrl(ctx context.Context, bucketName Bucket, objectName string, expires time.Duration) (*url.URL, error) {
+	return s.client.PresignedGetObject(ctx, string(bucketName), objectName, expires, nil)
 }
 
 // TODO: Experiment with these features:

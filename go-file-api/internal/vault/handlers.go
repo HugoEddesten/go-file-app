@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"go-file-api/internal/locals"
 	"go-file-api/internal/users"
 
 	"github.com/gofiber/fiber/v2"
@@ -8,7 +9,7 @@ import (
 
 func GetVault(vaultRepo *Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		vaultId := c.Locals("vaultId").(int)
+		vaultId := locals.VaultId(c)
 		ctx := c.UserContext()
 
 		vault, err := vaultRepo.GetVault(ctx, vaultId)
@@ -22,7 +23,7 @@ func GetVault(vaultRepo *Repository) fiber.Handler {
 
 func GetUserVaults(vaultRepo *Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userId := c.Locals("userId").(int)
+		userId := locals.UserId(c)
 		ctx := c.UserContext()
 
 		vaults, err := vaultRepo.GetVaultsForUser(ctx, userId)
@@ -36,7 +37,7 @@ func GetUserVaults(vaultRepo *Repository) fiber.Handler {
 
 func CreateVault(vaultRepo *Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userId := c.Locals("userId").(int)
+		userId := locals.UserId(c)
 		ctx := c.UserContext()
 
 		vaults, err := vaultRepo.Create(ctx, "my_vault", userId)
@@ -52,7 +53,7 @@ func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository) fiber
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
 
-		vaultId := c.Locals("vaultId").(int)
+		vaultId := locals.VaultId(c)
 
 		body := new(VaultUserCreateRequest)
 		if err := c.BodyParser(body); err != nil {
@@ -76,7 +77,7 @@ func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository) fiber
 func UpdateVaultUser(vaultRepo *Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
-		path := c.Locals("requestedVaultPath").(string)
+		path := locals.RequestedVaultPath(c)
 
 		body := new(VaultUserUpdateRequest)
 		if err := c.BodyParser(body); err != nil {
@@ -95,5 +96,52 @@ func UpdateVaultUser(vaultRepo *Repository) fiber.Handler {
 		}
 
 		return c.SendStatus(fiber.StatusOK)
+	}
+}
+
+func RemoveUserFromVault(vaultRepo *Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		ctx := c.UserContext()
+		adminUserId := locals.UserId(c)
+		vaultId := locals.VaultId(c)
+
+		body := new(RemoveUserFromVaultRequest)
+		if err := c.BodyParser(body); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
+		}
+
+		adminEntries, err := vaultRepo.GetVaultUsers(ctx, vaultId, adminUserId)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		targetEntries, err := vaultRepo.GetVaultUsers(ctx, vaultId, body.UserId)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		var idsToDelete []int
+		for _, target := range targetEntries {
+			if target.Role == VaultRoleOwner {
+				continue
+			}
+			for _, admin := range adminEntries {
+				if pathAllowed(admin.Path, target.Path) {
+					idsToDelete = append(idsToDelete, target.Id)
+					break
+				}
+			}
+		}
+
+		if len(idsToDelete) == 0 {
+			return c.JSON([]VaultUser{})
+		}
+
+		deleted, err := vaultRepo.DeleteVaultUsersByIds(ctx, idsToDelete)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		return c.JSON(deleted)
 	}
 }

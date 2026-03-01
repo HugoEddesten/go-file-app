@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type DragState = {
   isDragging: boolean,
@@ -7,12 +7,10 @@ export type DragState = {
 
 
 export const useDragOver = ({
-  target = "window",
   onEnter,
   onLeave,
   onDrop,
 }: {
-  target: string;
   onEnter?: (e: DragEvent) => void;
   onLeave?: (e: DragEvent) => void;
   onDrop?: (e: DragEvent) => void;

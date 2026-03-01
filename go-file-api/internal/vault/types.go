@@ -46,6 +46,10 @@ type VaultUserUpdateRequest struct {
 	VaultUserId int       `json:"vaultUserId"`
 }
 
+type RemoveUserFromVaultRequest struct {
+	UserId int `json:"userId"`
+}
+
 type PathBodyValidation struct {
 	Path string `json:"path"`
 }

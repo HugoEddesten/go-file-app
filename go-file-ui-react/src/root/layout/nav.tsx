@@ -7,7 +7,7 @@ export const Nav = () => {
     <div className="w-full h-full flex flex-col">
       <div className="flex text-center gap-4 items-center p-2">
         <Link to={"/"} className="w-12">
-          <img src="../../../public/SecureArchive-favicon.png"/>
+          <img src="/SecureArchive-favicon.png"/>
         </Link>
         <Separator orientation="vertical"/>
         
