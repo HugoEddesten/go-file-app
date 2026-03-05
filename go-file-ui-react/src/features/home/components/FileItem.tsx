@@ -12,7 +12,7 @@ import { useState } from "react";
 import { Input } from "../../../components/ui/input";
 import { useRenameFile } from "../api/renameFile";
 
-export const FileMinimized = ({
+export const FileItem = ({
   file,
   selected = false,
   onClick,

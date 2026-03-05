@@ -153,7 +153,8 @@ func (r *Repository) GetVault(ctx context.Context, vaultId int) (*VaultWithUsers
 			u.id,
 			u.email,
 			vu.role,
-			vu.path
+			vu.path,
+			vu.id
 		FROM vaults v
 		JOIN vault_users vu ON vu.vault_id = v.id
 		JOIN users u ON u.id = vu.user_id
@@ -181,6 +182,7 @@ func (r *Repository) GetVault(ctx context.Context, vaultId int) (*VaultWithUsers
 			&u.Email,
 			&u.Role,
 			&u.Path,
+			&u.VaultUserId,
 		); err != nil {
 			return nil, err
 		}
@@ -248,7 +250,8 @@ func (r *Repository) GetVaultsForUser(
 			u.id,
 			u.email,
 			vu.role,
-			vu.path
+			vu.path,
+			vu.id
 		FROM vaults v
 		JOIN vault_users vu ON vu.vault_id = v.id
 		JOIN users u ON u.id = vu.user_id
@@ -280,6 +283,7 @@ func (r *Repository) GetVaultsForUser(
 			&u.Email,
 			&u.Role,
 			&u.Path,
+			&u.VaultUserId,
 		); err != nil {
 			return nil, err
 		}
@@ -301,4 +305,34 @@ func (r *Repository) GetVaultsForUser(
 	}
 
 	return result, rows.Err()
+}
+
+func (r *Repository) GetVaultUser(ctx context.Context, vaultUserId int) (*VaultUser, error) {
+	var vaultUser VaultUser
+
+	err := r.DB.QueryRow(ctx, `
+		SELECT
+			vu.id,
+			vu.path,
+			vu.user_id,
+			vu.vault_id,
+			vu.created_at,
+			vu.updated_at,
+			vu.role
+		FROM vault_users vu
+		WHERE vu.id = $1`, vaultUserId).Scan(
+		&vaultUser.Id,
+		&vaultUser.Path,
+		&vaultUser.UserId,
+		&vaultUser.VaultId,
+		&vaultUser.CreatedAt,
+		&vaultUser.UpdatedAt,
+		&vaultUser.Role,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &vaultUser, nil
 }
