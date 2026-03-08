@@ -9,6 +9,7 @@ export type VaultUser = {
   email: string;
   role: VaultUserRole;
   path: string;
+  vaultUserId: number;
 };
 
 export const VaultUserRole = {

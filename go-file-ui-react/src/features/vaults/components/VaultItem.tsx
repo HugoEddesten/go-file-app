@@ -1,7 +1,6 @@
 import { Card } from "../../../components/ui/card";
 import { getVaultUserRole, VaultUserRole, type Vault } from "../types";
-import { ExternalLink } from "lucide-react";
-import { Button } from "../../../components/ui/button";
+import { Database } from "lucide-react";
 import { useVaultStore } from "../../../contexts/FileLibraryContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
@@ -24,20 +23,29 @@ export const VaultItem = ({ vault }: { vault: Vault }) => {
     return <MaximizedSpinner />;
   }
 
+  const isOwner = me.id === owner.id;
+
   return (
-    <Card className="w-fit p-4">
-      <div className="flex justify-between items-center">
-        <span>{vault.name}</span>
-        <Button onClick={() => handleNavigation(vault.id, me.path)}>
-          <ExternalLink />
-        </Button>
+    <Card
+      className="w-64 p-4 cursor-pointer hover:shadow-md hover:bg-accent/50 transition-all"
+      onClick={() => handleNavigation(vault.id, me.path)}
+    >
+      <div className="flex items-start gap-3">
+        <div className="rounded-md bg-primary/10 p-2 text-primary shrink-0">
+          <Database size={18} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm truncate">{vault.name}</p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">{owner.email}</p>
+        </div>
       </div>
-      <div>
-        <p className="text-xs">Owner: {owner.email}</p>
-        {me.id !== owner.id && (
-          <p className="text-xs">Access: {getVaultUserRole(me.role)}</p>
-        )}
-      </div>
+      {!isOwner && (
+        <div className="pt-3 border-t">
+          <span className="text-xs bg-secondary text-secondary-foreground rounded px-2 py-0.5">
+            {getVaultUserRole(me.role)}
+          </span>
+        </div>
+      )}
     </Card>
   );
 };

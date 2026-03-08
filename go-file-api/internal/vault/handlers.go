@@ -1,10 +1,12 @@
 package vault
 
 import (
+	"errors"
 	"go-file-api/internal/locals"
 	"go-file-api/internal/users"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
 
 func GetVault(vaultRepo *Repository) fiber.Handler {
@@ -77,11 +79,31 @@ func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository) fiber
 func UpdateVaultUser(vaultRepo *Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
+		vaultId := locals.VaultId(c)
+		adminUserId := locals.UserId(c)
 		path := locals.RequestedVaultPath(c)
 
 		body := new(VaultUserUpdateRequest)
 		if err := c.BodyParser(body); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
+		}
+
+		adminEntries, err := vaultRepo.GetVaultUsers(ctx, vaultId, adminUserId)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		target, err := vaultRepo.GetVaultUser(ctx, body.VaultUserId)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fiber.NewError(fiber.StatusNotFound)
+			}
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		editable := editableByAdmin(adminEntries, []VaultUser{*target})
+		if len(editable) == 0 {
+			return fiber.NewError(fiber.StatusForbidden, "Insufficient access level")
 		}
 
 		vaultUser := VaultUser{
@@ -90,7 +112,7 @@ func UpdateVaultUser(vaultRepo *Repository) fiber.Handler {
 			Role: body.Role,
 		}
 
-		_, err := vaultRepo.UpdateVaultUser(ctx, &vaultUser)
+		_, err = vaultRepo.UpdateVaultUser(ctx, &vaultUser)
 		if err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError)
 		}
@@ -120,21 +142,14 @@ func RemoveUserFromVault(vaultRepo *Repository) fiber.Handler {
 			return fiber.NewError(fiber.StatusInternalServerError)
 		}
 
-		var idsToDelete []int
-		for _, target := range targetEntries {
-			if target.Role == VaultRoleOwner {
-				continue
-			}
-			for _, admin := range adminEntries {
-				if pathAllowed(admin.Path, target.Path) {
-					idsToDelete = append(idsToDelete, target.Id)
-					break
-				}
-			}
+		editable := editableByAdmin(adminEntries, targetEntries)
+		if len(editable) == 0 {
+			return c.JSON([]VaultUser{})
 		}
 
-		if len(idsToDelete) == 0 {
-			return c.JSON([]VaultUser{})
+		idsToDelete := make([]int, len(editable))
+		for i, u := range editable {
+			idsToDelete[i] = u.Id
 		}
 
 		deleted, err := vaultRepo.DeleteVaultUsersByIds(ctx, idsToDelete)
@@ -143,5 +158,39 @@ func RemoveUserFromVault(vaultRepo *Repository) fiber.Handler {
 		}
 
 		return c.JSON(deleted)
+	}
+}
+
+func RemoveVaultUser(vaultRepo *Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		ctx := c.UserContext()
+		adminUserId := locals.UserId(c)
+		vaultId := locals.VaultId(c)
+
+		body := new(RemoveVaultUserRequest)
+		if err := c.BodyParser(body); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
+		}
+
+		adminEntries, err := vaultRepo.GetVaultUsers(ctx, vaultId, adminUserId)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		target, err := vaultRepo.GetVaultUser(ctx, body.VaultUserId)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		editable := editableByAdmin(adminEntries, []VaultUser{*target})
+		if len(editable) == 0 {
+			return c.JSON([]VaultUser{})
+		}
+
+		deletedVaultUser, err := vaultRepo.DeleteVaultUsersByIds(ctx, []int{body.VaultUserId})
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+		return c.JSON(deletedVaultUser)
 	}
 }

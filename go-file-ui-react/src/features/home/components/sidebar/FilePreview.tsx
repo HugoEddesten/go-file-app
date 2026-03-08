@@ -1,10 +1,10 @@
-import { Card } from "../../../components/ui/card";
-import { Field, FieldGroup } from "../../../components/ui/field";
-import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
-import { MaximizedSpinner } from "../../../components/ui/maximizedSpinner";
-import { getRenderer, putPrefixOnByteCount } from "../../../helpers/renderer";
-import { useFileDetails } from "../api/getFile";
+import { Card } from "../../../../components/ui/card";
+import { Field, FieldGroup } from "../../../../components/ui/field";
+import { Input } from "../../../../components/ui/input";
+import { Label } from "../../../../components/ui/label";
+import { MaximizedSpinner } from "../../../../components/ui/maximizedSpinner";
+import { getRenderer, putPrefixOnByteCount } from "../../../../helpers/renderer";
+import { useFileDetails } from "../../api/getFile";
 
 export const FilePreview = ({
   fileKey,
@@ -18,7 +18,6 @@ export const FilePreview = ({
   }files/${vaultId}/download${fileKey}`;
 
   const { data: meta, isLoading } = useFileDetails({ path: fileKey, vaultId });
-  console.log(meta);
   const renderPreview = () => {
     if (!meta) return;
 
@@ -72,5 +71,5 @@ export const FilePreview = ({
 };
 
 const NoPreview = () => {
-  return <h3 className="text-center">Preview not availible</h3>;
+  return <h3 className="text-center">Preview not available</h3>;
 };

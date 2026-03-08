@@ -1,26 +1,32 @@
-import { Link } from "react-router-dom"
-import { Separator } from "../../components/ui/separator"
+import { NavLink } from "react-router-dom";
+import { Separator } from "../../components/ui/separator";
+import { Database } from "lucide-react";
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `text-sm px-3 py-1.5 rounded-md transition-colors ${
+    isActive
+      ? "bg-accent text-foreground font-medium"
+      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+  }`;
 
 export const Nav = () => {
-
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex text-center gap-4 items-center p-2">
-        <Link to={"/"} className="w-12">
-          <img src="/SecureArchive-favicon.png"/>
-        </Link>
-        <Separator orientation="vertical"/>
-        
-        <Link to={"/"}>
+      <div className="flex items-center gap-1 px-4 h-12">
+        <NavLink
+          to={"/"}
+          className="rounded-md bg-primary/10 p-2 text-primary shrink-0 mr-3"
+        >
+          <Database size={18} />
+        </NavLink>
+        <NavLink to={"/"} end className={navLinkClass}>
           Home
-        </Link>
-        <Separator orientation="vertical"/>
-
-        <Link to={"/profile"}>
+        </NavLink>
+        <NavLink to={"/profile"} className={navLinkClass}>
           Profile
-        </Link>
+        </NavLink>
       </div>
       <Separator />
     </div>
-  )
-}
+  );
+};

@@ -4,21 +4,20 @@ import { DragContext } from "../../contexts/DragContext";
 import { DragProvider } from "../../contexts/DragProvider";
 import { cn } from "../../lib/utils";
 import { useFiles } from "./api/getFiles";
-import { FileMinimized } from "./components/FileMinimized";
+import { FileItem } from "./components/FileItem";
 import { api } from "../../lib/api";
 import { queryClient } from "../../lib/queryClient";
 import { Input } from "../../components/ui/input";
-import { FolderMinimized } from "./components/FolderMinimized";
+import { FolderItem } from "./components/FolderItem";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { FileLibraryMenuBar } from "./components/FileLibraryMenuBar";
 import { MaximizedSpinner } from "../../components/ui/maximizedSpinner";
-import { FilePreview } from "./components/FilePreview";
+import { Sidebar } from "./components/sidebar/Sidebar";
 import {
   useLocation,
   useOutletContext,
 } from "react-router-dom";
-import { DirectoryList } from "./components/DirectoryList";
 
 export type FileData = {
   Name: string;
@@ -104,7 +103,7 @@ export const Home = () => {
                       files.map((f) => (
                         <div key={f.Key} className="h-fit">
                           {f.Name.includes(".") ? (
-                            <FileMinimized
+                            <FileItem
                               key={f.Key}
                               file={f}
                               selected={selectedFile === f.Key}
@@ -112,7 +111,7 @@ export const Home = () => {
                               vaultId={vaultId}
                             />
                           ) : (
-                            <FolderMinimized
+                            <FolderItem
                               onDoubleClick={() => setCurrentDir(f.Key)}
                               key={f.Key}
                               file={f}
@@ -128,11 +127,11 @@ export const Home = () => {
             </DragProvider>
           </DragContext>
         </Card>
-        {selectedFile ? (
-          <FilePreview fileKey={selectedFile} vaultId={vaultId} />
-        ) : (
-          <DirectoryList vaultId={vaultId} setCurrentDir={setCurrentDir}/>
-        )}
+        <Sidebar
+          selectedFile={selectedFile}
+          vaultId={vaultId}
+          setCurrentDir={setCurrentDir}
+        />
       </div>
     </div>
   );

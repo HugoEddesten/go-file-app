@@ -79,6 +79,25 @@ func cleanPath(p string) (string, error) {
 	return path.Clean("/" + fileKey), nil
 }
 
+// editableByAdmin returns the subset of targets that adminEntries have permission to edit.
+// A target is editable if it is not an owner and at least one admin entry covers its path with
+// Admin role or higher (Owner or Admin).
+func editableByAdmin(adminEntries []VaultUser, targets []VaultUser) []VaultUser {
+	var editable []VaultUser
+	for _, target := range targets {
+		if target.Role == VaultRoleOwner {
+			continue
+		}
+		for _, admin := range adminEntries {
+			if admin.Role <= VaultRoleAdmin && pathAllowed(admin.Path, target.Path) {
+				editable = append(editable, target)
+				break
+			}
+		}
+	}
+	return editable
+}
+
 func pathAllowed(allowed, requested string) bool {
 	if allowed == "/" {
 		return true

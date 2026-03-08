@@ -19,7 +19,7 @@ import { FolderUser } from "../../../components/ui/FolderUser";
 import { useRenameFile } from "../api/renameFile";
 import { Input } from "../../../components/ui/input";
 
-export const FolderMinimized = ({
+export const FolderItem = ({
   file,
   onDoubleClick,
   vaultId,

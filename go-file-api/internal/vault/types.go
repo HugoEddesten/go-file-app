@@ -28,10 +28,11 @@ type VaultWithUsers struct {
 }
 
 type UserInVault struct {
-	Id    int       `json:"id"`
-	Email string    `json:"email"`
-	Role  VaultRole `json:"role"`
-	Path  string    `json:"path"`
+	Id          int       `json:"id"`
+	Email       string    `json:"email"`
+	Role        VaultRole `json:"role"`
+	Path        string    `json:"path"`
+	VaultUserId int       `json:"vaultUserId"`
 }
 
 type VaultUserCreateRequest struct {
@@ -48,6 +49,10 @@ type VaultUserUpdateRequest struct {
 
 type RemoveUserFromVaultRequest struct {
 	UserId int `json:"userId"`
+}
+
+type RemoveVaultUserRequest struct {
+	VaultUserId int `json:"vaultUserId"`
 }
 
 type PathBodyValidation struct {

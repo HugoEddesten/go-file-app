@@ -10,6 +10,48 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestEditableByAdmin(t *testing.T) {
+	owner := VaultUser{Id: 1, Path: "/", Role: VaultRoleOwner}
+	adminRoot := VaultUser{Id: 2, Path: "/", Role: VaultRoleAdmin}
+	adminDocs := VaultUser{Id: 3, Path: "/documents", Role: VaultRoleAdmin}
+	editorRoot := VaultUser{Id: 4, Path: "/", Role: VaultRoleEditor}
+
+	targetRoot := VaultUser{Id: 10, Path: "/", Role: VaultRoleEditor}
+	targetDocs := VaultUser{Id: 11, Path: "/documents/file.txt", Role: VaultRoleViewer}
+	targetOther := VaultUser{Id: 12, Path: "/other", Role: VaultRoleViewer}
+
+	t.Run("owner is never editable", func(t *testing.T) {
+		result := editableByAdmin([]VaultUser{adminRoot}, []VaultUser{owner})
+		assert.Empty(t, result)
+	})
+
+	t.Run("admin with root access can edit any target", func(t *testing.T) {
+		result := editableByAdmin([]VaultUser{adminRoot}, []VaultUser{targetRoot, targetDocs, targetOther})
+		assert.Len(t, result, 3)
+	})
+
+	t.Run("admin scoped to /documents can edit targets under /documents", func(t *testing.T) {
+		result := editableByAdmin([]VaultUser{adminDocs}, []VaultUser{targetDocs, targetOther})
+		assert.Len(t, result, 1)
+		assert.Equal(t, targetDocs.Id, result[0].Id)
+	})
+
+	t.Run("editor cannot edit anyone even with path coverage", func(t *testing.T) {
+		result := editableByAdmin([]VaultUser{editorRoot}, []VaultUser{targetDocs})
+		assert.Empty(t, result)
+	})
+
+	t.Run("empty admin entries returns nothing", func(t *testing.T) {
+		result := editableByAdmin([]VaultUser{}, []VaultUser{targetDocs})
+		assert.Empty(t, result)
+	})
+
+	t.Run("empty targets returns nothing", func(t *testing.T) {
+		result := editableByAdmin([]VaultUser{adminRoot}, []VaultUser{})
+		assert.Empty(t, result)
+	})
+}
+
 func TestResolveVaultPath_Wildcard(t *testing.T) {
 	app := fiber.New()
 	var resolvedPath string

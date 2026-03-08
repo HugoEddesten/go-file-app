@@ -21,4 +21,5 @@ func RegisterRoutes(
 	group.Post("assign-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), AssignUserToVault(vaultRepo, userRepo))
 	group.Put("update-vault-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), UpdateVaultUser(vaultRepo))
 	group.Delete("remove-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), RemoveUserFromVault(vaultRepo))
+	group.Delete("remove-vault-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), RemoveVaultUser(vaultRepo))
 }
