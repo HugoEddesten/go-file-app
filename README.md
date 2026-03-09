@@ -82,7 +82,9 @@ The dev server starts on port 5173.
 
 ```
 go-file-api/          # Go backend
-  cmd/api/            # Application entry point
+  cmd/
+    api/              # Application entry point
+    migrate/          # Database migration tool
   internal/
     auth/             # Register, login, session handlers
     jwt/              # JWT token service and middleware
@@ -122,6 +124,7 @@ Users can be restricted to specific paths within a vault for fine-grained access
 - `POST /auth/register` — Create account (also creates a default vault and redeems any pending invites)
 - `POST /auth/login` — Authenticate and receive JWT cookie
 - `GET /auth/me` — Get current user info
+- `POST /auth/logout` — Removes the auth-cookie
 
 ### Vaults
 - `GET /vault/get-user-vaults` — List vaults for authenticated user
