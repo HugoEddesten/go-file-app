@@ -1,15 +1,23 @@
 package auth
 
 import (
+	"errors"
+	"fmt"
+	"log"
+	"os"
+
+	"go-file-api/internal/email"
+	"go-file-api/internal/invites"
 	"go-file-api/internal/jwt"
 	"go-file-api/internal/users"
 	"go-file-api/internal/vault"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func Register(userRepo *users.Repository, vaultRepo *vault.Repository, jwtService *jwt.JWTService) fiber.Handler {
+func Register(userRepo *users.Repository, vaultRepo *vault.Repository, inviteRepo *invites.Repository, emailSvc email.EmailService, jwtService *jwt.JWTService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
 
@@ -36,6 +44,24 @@ func Register(userRepo *users.Repository, vaultRepo *vault.Repository, jwtServic
 		if err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError, "Could not create vault")
 		}
+
+		// Redeem any pending vault invites for this email.
+		pendingInvites, err := inviteRepo.FindPendingByEmail(ctx, body.Email)
+		if err != nil {
+			log.Printf("register: failed to fetch pending invites for %s: %v", body.Email, err)
+		} else {
+			for _, inv := range pendingInvites {
+				if _, err := vaultRepo.AddUserToVault(ctx, inv.VaultId, userId, inv.Path, vault.VaultRole(inv.Role)); err != nil {
+					log.Printf("register: failed to add user %d to vault %d: %v", userId, inv.VaultId, err)
+					continue
+				}
+				if err := inviteRepo.Accept(ctx, inv.Id); err != nil {
+					log.Printf("register: failed to accept invite %d: %v", inv.Id, err)
+				}
+			}
+		}
+
+		go emailSvc.SendWelcome(ctx, body.Email)
 
 		token, _ := jwtService.GenerateToken(userId, body.Email)
 
@@ -89,6 +115,21 @@ func Login(repo *users.Repository, jwtService *jwt.JWTService) fiber.Handler {
 	}
 }
 
+func Logout() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		c.Cookie(&fiber.Cookie{
+			Name:     "auth",
+			Value:    "",
+			HTTPOnly: true,
+			Secure:   true,
+			SameSite: fiber.CookieSameSiteNoneMode,
+			Path:     "/",
+			MaxAge:   -1,
+		})
+		return c.SendStatus(fiber.StatusOK)
+	}
+}
+
 func Me(repo *users.Repository, jwtService *jwt.JWTService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authCookie := c.Cookies("auth")
@@ -102,5 +143,68 @@ func Me(repo *users.Repository, jwtService *jwt.JWTService) fiber.Handler {
 			"userId": claims.UserId,
 			"email":  claims.Email,
 		})
+	}
+}
+
+func ResetPassword(repo *users.Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		token := c.Params("token")
+
+		body := new(ResetPasswordRequest)
+		if err := c.BodyParser(body); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
+		}
+		if len(body.Password) < 8 {
+			return fiber.NewError(fiber.StatusBadRequest, "Password needs to be at least 8 characters long")
+		}
+
+		reset, err := repo.FindPasswordResetByToken(token)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid or expired reset link")
+			}
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		hashed, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		if err := repo.ConsumePasswordReset(reset.Id, reset.UserId, string(hashed)); err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		return c.SendStatus(fiber.StatusOK)
+	}
+}
+
+func SendResetPasswordEmail(repo *users.Repository, emailSvc email.EmailService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		ctx := c.UserContext()
+
+		body := new(SendResetPasswordRequest)
+		if err := c.BodyParser(body); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
+		}
+
+		user, err := repo.FindByEmail(body.Email)
+
+		if err == nil {
+			passwordReset, err := repo.CreatePasswordReset(user.Id)
+			if err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError)
+			}
+
+			appURL := os.Getenv("APP_URL")
+			if appURL == "" {
+				appURL = "http://localhost:5173"
+			}
+			resetLink := fmt.Sprintf("%s/reset-password/%s", appURL, passwordReset.Token)
+
+			emailSvc.SendResetPassword(ctx, user.Email, resetLink)
+		}
+
+		return c.SendStatus(fiber.StatusOK)
 	}
 }

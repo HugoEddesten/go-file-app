@@ -26,6 +26,7 @@ export function FormField<
 >({
   field,
   fieldState,
+  input,
   label,
 }: FormFieldProps<TFieldValues, TName>) {
   // const { field, fieldState, formState } = state;
@@ -38,6 +39,7 @@ export function FormField<
         type={field.name}
         aria-invalid={fieldState.invalid}
         {...field}
+        {...input}
       />
       {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
     </Field>

@@ -307,6 +307,12 @@ func (r *Repository) GetVaultsForUser(
 	return result, rows.Err()
 }
 
+func (r *Repository) GetVaultName(ctx context.Context, vaultId int) (string, error) {
+	var name string
+	err := r.DB.QueryRow(ctx, `SELECT name FROM vaults WHERE id = $1`, vaultId).Scan(&name)
+	return name, err
+}
+
 func (r *Repository) GetVaultUser(ctx context.Context, vaultUserId int) (*VaultUser, error) {
 	var vaultUser VaultUser
 
