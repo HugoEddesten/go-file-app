@@ -5,44 +5,34 @@ import { Card, CardTitle } from "../../components/ui/card";
 import { FieldGroup } from "../../components/ui/field";
 import { Form, FormDescription } from "../../components/ui/form";
 import { Button } from "../../components/ui/button";
-import { register } from "./api/register";
-import { getInviteInfo, type InviteInfo } from "./api/getInviteInfo";
-import { Link, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { resetPassword } from "./api/resetPassword";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect } from "react";
 import { FormField } from "../../components/form/FormField";
 
-const registerSchema = z.object({
-  email: z.string().min(5, { error: "Invalid email" }),
-  password: z
-    .string()
-    .min(8, { error: "Password needs to be at least 8 characters long" }),
-});
-
-export const Register = () => {
-  const { token } = useParams<{ token?: string }>();
-  const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-
-  const form = useForm<z.infer<typeof registerSchema>>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, { error: "Password needs to be at least 8 characters long" }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
   });
 
-  useEffect(() => {
-    if (!token) return;
+export const ResetPassword = () => {
+  const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
 
-    getInviteInfo(token)
-      .then((info) => {
-        setInviteInfo(info);
-        form.setValue("email", info.email);
-      })
-      .catch(() => {
-        setInviteError("This invite link is invalid or has expired.");
-      });
-  }, [token]);
+  const form = useForm<z.infer<typeof resetPasswordSchema>>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      password: "",
+      confirmPassword: "",
+    },
+  });
 
   useEffect(() => {
     const subscription = form.watch(() => {
@@ -50,20 +40,16 @@ export const Register = () => {
         form.clearErrors("root");
       }
     });
-
     return () => subscription.unsubscribe();
   }, [form]);
 
-  const handleSubmit = async (values: z.infer<typeof registerSchema>) => {
+  const handleSubmit = async (values: z.infer<typeof resetPasswordSchema>) => {
     try {
-      await register(values);
+      await resetPassword(token!, values.password);
+      navigate("/login");
     } catch (err: any) {
       const message = err?.response?.data ?? "Something went wrong";
-
-      form.setError("root", {
-        type: "server",
-        message,
-      });
+      form.setError("root", { type: "server", message });
     }
   };
 
@@ -71,21 +57,9 @@ export const Register = () => {
     <div className="flex w-full h-full items-center justify-center">
       <Card className="p-4 w-xl flex justify-center items-center">
         <CardTitle className="text-center text-2xl">
-          Register an account
+          Reset your password
         </CardTitle>
-
         <Form {...form}>
-          {inviteInfo && (
-            <FormDescription className="text-center">
-              You've been invited to <strong>{inviteInfo.vaultName}</strong>
-            </FormDescription>
-          )}
-
-          {inviteError && (
-            <FormDescription className="text-destructive text-center">
-              {inviteError}
-            </FormDescription>
-          )}
           <form
             className="flex flex-col items-center gap-4 w-lg"
             onSubmit={form.handleSubmit(handleSubmit)}
@@ -93,26 +67,29 @@ export const Register = () => {
             <FieldGroup>
               <Controller
                 control={form.control}
-                name="email"
+                name="password"
                 render={(state) => (
                   <FormField
-                    label="Email"
+                    label="New password"
+                    input={{ type: "password", autoComplete: "off" }}
                     {...state}
-                    field={{
-                      ...state.field,
-                      disabled: !!inviteInfo,
-                    }}
                   />
                 )}
               />
               <Controller
                 control={form.control}
-                name="password"
-                render={(state) => <FormField label="Password" {...state} />}
+                name="confirmPassword"
+                render={(state) => (
+                  <FormField
+                    label="Confirm password"
+                    input={{ type: "password", autoComplete: "off" }}
+                    {...state}
+                  />
+                )}
               />
             </FieldGroup>
             <FormDescription>
-              Already have an account?{" "}
+              Remembered it?{" "}
               <Link to="/login" className="underline">
                 Log in here
               </Link>
@@ -124,7 +101,7 @@ export const Register = () => {
                 </FormDescription>
               )}
               <Button className="row-start-2 w-fit" type="submit">
-                Register
+                Reset password
               </Button>
             </div>
           </form>

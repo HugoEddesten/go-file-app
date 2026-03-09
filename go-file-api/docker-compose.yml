@@ -38,6 +38,14 @@ services:
       - minio_data:/data
     command: server /data --console-address ":9001"
 
+  mailhog:
+    image: mailhog/mailhog
+    container_name: my_mailhog
+    restart: always
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+
 volumes:
   postgres_data:
   minio_data:

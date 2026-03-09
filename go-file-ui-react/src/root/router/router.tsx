@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute"
 import { Login } from "../../features/auth/Login"
 import { Home } from "../../features/home/Home"
 import { Register } from "../../features/auth/Register"
+import { ResetPassword } from "../../features/auth/ResetPassword"
 import { Vaults } from "../../features/vaults/Vaults"
 import { DefaultLayout } from "../layout/defaultLayout"
 
@@ -22,7 +23,9 @@ export const router = createBrowserRouter([
         ),
         children: [
           { path: "/login", element: <Login /> },
-          { path: "/register", element: <Register /> }
+          { path: "/register", element: <Register /> },
+          { path: "/register/:token", element: <Register /> },
+          { path: "/reset-password/:token", element: <ResetPassword /> }
         ]
       },
       {

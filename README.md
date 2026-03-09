@@ -56,6 +56,8 @@ The migration is **safe to run multiple times** (uses `IF NOT EXISTS`) and won't
 - `vault_users` — id, vault_id, user_id, path, role (1-4), created_at, updated_at
   - Unique constraint on (vault_id, user_id, path)
   - Indexes for performance optimization
+- `vault_invites` — id, vault_id, invited_by, email, role, path, token (unique), expires_at, accepted_at, created_at
+  - Indexes on token and email for fast lookups
 
 ### 3. Run the Backend
 
@@ -87,6 +89,8 @@ go-file-api/          # Go backend
     users/            # User repository
     vault/            # Vault CRUD, sharing, role-based access
     files/            # File upload, download, listing, search
+    email/            # Email service (SMTP + Resend) and HTML templates
+    invites/          # Vault invite repository and types
     db/               # Database connection config
 
 go-file-ui-react/     # React frontend
@@ -115,7 +119,7 @@ Users can be restricted to specific paths within a vault for fine-grained access
 ## API Overview
 
 ### Auth
-- `POST /auth/register` — Create account (also creates a default vault)
+- `POST /auth/register` — Create account (also creates a default vault and redeems any pending invites)
 - `POST /auth/login` — Authenticate and receive JWT cookie
 - `GET /auth/me` — Get current user info
 
@@ -123,8 +127,12 @@ Users can be restricted to specific paths within a vault for fine-grained access
 - `GET /vault/get-user-vaults` — List vaults for authenticated user
 - `POST /vault/create` — Create a new vault
 - `GET /vault/get-vault/:vaultId` — Get vault details with users
-- `POST /vault/assign-user/:vaultId` — Add a user to a vault
+- `POST /vault/assign-user/:vaultId` — Add a user to a vault (sends invite email if user doesn't exist)
 - `PUT /vault/update-vault-user/:vaultId` — Update user role/path
+- `GET /vault/invites/:vaultId` — List pending invites for a vault (admin only)
+
+### Invites
+- `GET /invites/:token` — Get invite info by token (public, used to pre-fill the register form)
 
 ### Files
 - `POST /files/upload/:vaultId` — Upload a file
@@ -138,19 +146,56 @@ Users can be restricted to specific paths within a vault for fine-grained access
 
 **Backend** (defaults used if not set):
 
-| Variable    | Default   |
-|-------------|-----------|
-| DB_HOST     | localhost |
-| DB_PORT     | 5432      |
-| DB_USER     | admin     |
-| DB_PASSWORD | admin123  |
-| DB_NAME     | filedb    |
+| Variable       | Default                    | Description                              |
+|----------------|----------------------------|------------------------------------------|
+| DB_HOST        | localhost                  |                                          |
+| DB_PORT        | 5432                       |                                          |
+| DB_USER        | admin                      |                                          |
+| DB_PASSWORD    | admin123                   |                                          |
+| DB_NAME        | filedb                     |                                          |
+| EMAIL_PROVIDER | smtp                       | `smtp` (dev/Mailhog) or `resend`         |
+| EMAIL_FROM     | noreply@go-file-app.local  | Sender address                           |
+| SMTP_HOST      | localhost                  | SMTP server host                         |
+| SMTP_PORT      | 1025                       | SMTP server port (Mailhog default)       |
+| RESEND_API_KEY | —                          | Required when `EMAIL_PROVIDER=resend`    |
+| APP_URL        | http://localhost:5173       | Base URL used in invite email links      |
 
 **Frontend** (`go-file-ui-react/.env`):
 
 | Variable     | Default                    |
 |--------------|----------------------------|
 | VITE_API_URL | http://127.0.0.1:3000/     |
+
+## Email
+
+The `internal/email` package provides a provider-agnostic `EmailService` interface with two implementations selected via the `EMAIL_PROVIDER` env var:
+
+- **`smtp`** (default) — connects to any SMTP server; use [Mailhog](https://github.com/mailhog/MailHog) locally on port 1025
+- **`resend`** — sends via the [Resend](https://resend.com) API; requires `RESEND_API_KEY`
+
+### Emails sent
+
+| Trigger | Email |
+|---|---|
+| User registers | Welcome email to the new user |
+| Vault shared with existing user | "You now have access to X" notification |
+| Vault shared with unknown email | Invite email with a registration link |
+
+### Vault invite flow
+
+1. Admin shares a vault with an email that has no account
+2. A `vault_invites` record is created with a unique token (expires in 7 days)
+3. An invite email is sent containing a link to `/register/:token`
+4. The frontend fetches `GET /invites/:token` to pre-fill and lock the email field
+5. On registration, all pending invites for that email are automatically redeemed — `vault_users` rows are created and invites marked accepted
+
+### Local development with Mailhog
+
+```bash
+docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
+```
+
+View captured emails at `http://localhost:8025`.
 
 ## Testing
 

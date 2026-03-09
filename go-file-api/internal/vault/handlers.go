@@ -2,6 +2,11 @@ package vault
 
 import (
 	"errors"
+	"fmt"
+	"os"
+
+	"go-file-api/internal/email"
+	"go-file-api/internal/invites"
 	"go-file-api/internal/locals"
 	"go-file-api/internal/users"
 
@@ -51,28 +56,53 @@ func CreateVault(vaultRepo *Repository) fiber.Handler {
 	}
 }
 
-func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository) fiber.Handler {
+func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository, inviteRepo *invites.Repository, emailSvc email.EmailService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
-
 		vaultId := locals.VaultId(c)
+		invitedBy := locals.UserId(c)
 
 		body := new(VaultUserCreateRequest)
 		if err := c.BodyParser(body); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
 		}
-
-		user, err := usersRepo.FindByEmail(body.Email)
-		if err != nil {
-			return fiber.NewError(fiber.StatusNotFound, "No user with provided email found")
+		if body.Path == "" {
+			body.Path = "/"
 		}
 
-		_, err = vaultRepo.AddUserToVault(ctx, vaultId, user.Id, body.Path, body.Role)
-		if err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError)
+		existingUser, err := usersRepo.FindByEmail(body.Email)
+		if err == nil {
+			// User exists — grant access directly.
+			if _, err := vaultRepo.AddUserToVault(ctx, vaultId, existingUser.Id, body.Path, body.Role); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError)
+			}
+			vaultName, _ := vaultRepo.GetVaultName(ctx, vaultId)
+			go emailSvc.SendVaultAccessGranted(ctx, body.Email, vaultName)
+			return c.SendStatus(fiber.StatusCreated)
 		}
 
-		return c.SendStatus(fiber.StatusCreated)
+		// User doesn't exist — create invite and send email.
+		if errors.Is(err, pgx.ErrNoRows) {
+			vaultName, err := vaultRepo.GetVaultName(ctx, vaultId)
+			if err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "Couldnt get vault name")
+			}
+
+			inv, err := inviteRepo.Create(ctx, vaultId, invitedBy, body.Email, body.Path, int(body.Role))
+			if err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "vault_invite creation failed")
+			}
+
+			appURL := os.Getenv("APP_URL")
+			if appURL == "" {
+				appURL = "http://localhost:5173"
+			}
+			inviteURL := fmt.Sprintf("%s/register/%s", appURL, inv.Token)
+			go emailSvc.SendVaultInvite(ctx, body.Email, vaultName, inviteURL)
+			return c.SendStatus(fiber.StatusCreated)
+		}
+
+		return fiber.NewError(fiber.StatusBadRequest, "Couldnt create the permission")
 	}
 }
 
@@ -195,5 +225,49 @@ func RemoveVaultUser(vaultRepo *Repository) fiber.Handler {
 			return fiber.NewError(fiber.StatusInternalServerError)
 		}
 		return c.JSON(deletedVaultUser)
+	}
+}
+
+// GetPendingInvites handles GET /vault/invites/:vaultId (admin)
+func GetPendingInvites(inviteRepo *invites.Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		ctx := c.UserContext()
+		vaultId := locals.VaultId(c)
+
+		pending, err := inviteRepo.FindPendingByVault(ctx, vaultId)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+		return c.JSON(pending)
+	}
+}
+
+// GetInviteInfo handles GET /invites/:token (public)
+func GetInviteInfo(inviteRepo *invites.Repository, vaultRepo *Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		ctx := c.UserContext()
+		token := c.Params("token")
+
+		inv, err := inviteRepo.FindByToken(ctx, token)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fiber.NewError(fiber.StatusNotFound, "Invite not found")
+			}
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+		if inv.AcceptedAt != nil {
+			return fiber.NewError(fiber.StatusGone, "Invite already accepted")
+		}
+
+		vaultName, err := vaultRepo.GetVaultName(ctx, inv.VaultId)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError)
+		}
+
+		return c.JSON(invites.InviteInfoResponse{
+			Email:     inv.Email,
+			VaultName: vaultName,
+			Token:     inv.Token,
+		})
 	}
 }

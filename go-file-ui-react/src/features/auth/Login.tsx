@@ -6,7 +6,9 @@ import { FieldGroup } from "../../components/ui/field";
 import { Form, FormDescription } from "../../components/ui/form";
 import { Button } from "../../components/ui/button";
 import { login } from "./api/login";
+import { sendResetPasswordEmail } from "./api/sendResetPasswordEmail";
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import { FormField } from "../../components/form/FormField";
 
 const loginSchema = z.object({
@@ -15,6 +17,8 @@ const loginSchema = z.object({
 });
 
 export const Login = () => {
+  const [resetSent, setResetSent] = useState(false);
+
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -28,11 +32,23 @@ export const Login = () => {
       await login(values);
     } catch (err: any) {
       const message = err?.response?.data ?? "Something went wrong";
+      form.setError("root", { type: "server", message });
+    }
+  };
 
-      form.setError("root", {
-        type: "server",
-        message,
-      });
+  const handleForgotPassword = async () => {
+    const email = form.getValues("email");
+    if (!email) {
+      form.clearErrors();
+      form.setError("email", { type: "manual", message: "Enter your email first" });
+      return;
+    }
+
+    try {
+      await sendResetPasswordEmail(email);
+      setResetSent(true);
+    } catch {
+      form.setError("root", { type: "server", message: "Something went wrong" });
     }
   };
 
@@ -71,15 +87,27 @@ export const Login = () => {
                 Register here
               </Link>
             </FormDescription>
-            <div className="grid grid-rows-2 justify-items-center">
+            <div className="grid grid-rows-2 w-full justify-items-center">
               {form.formState.errors.root && (
                 <FormDescription className="text-destructive">
                   {form.formState.errors.root.message}
                 </FormDescription>
               )}
-              <Button className="row-start-2 w-fit" type="submit">
-                Log in
-              </Button>
+              {resetSent && (
+                <FormDescription className="text-center">
+                  Password reset email sent. Check your inbox.
+                </FormDescription>
+              )}
+              <div className="row-start-2 w-full justify-end flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleForgotPassword}
+                >
+                  Forgot password?
+                </Button>
+                <Button type="submit">Log in</Button>
+              </div>
             </div>
           </form>
         </Form>

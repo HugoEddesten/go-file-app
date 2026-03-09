@@ -1,7 +1,9 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Separator } from "../../components/ui/separator";
 import { Database } from "lucide-react";
 import { useAuthQuery } from "../router/api/useAuth";
+import { Button } from "../../components/ui/button";
+import { logout } from "../../features/auth/api/logout";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `text-sm px-3 py-1.5 rounded-md transition-colors ${
@@ -11,7 +13,14 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 export const Nav = () => {
-  const { data: user } = useAuthQuery()
+  const { data: user } = useAuthQuery();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
+
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex items-center gap-1 px-4 h-12">
@@ -31,6 +40,15 @@ export const Nav = () => {
         >
           Profile
         </NavLink>
+        {user?.userId && (
+          <Button
+            variant="ghost"
+            className="ml-auto text-muted-foreground"
+            onClick={handleLogout}
+          >
+            Log out
+          </Button>
+        )}
       </div>
       <Separator />
     </div>

@@ -9,7 +9,9 @@ import (
 	"go-file-api/db"
 	"go-file-api/internal/auth"
 	internaldb "go-file-api/internal/db"
+	"go-file-api/internal/email"
 	"go-file-api/internal/files"
+	"go-file-api/internal/invites"
 	"go-file-api/internal/jwt"
 	"go-file-api/internal/storage"
 	"go-file-api/internal/users"
@@ -49,6 +51,8 @@ func main() {
 
 	vaultRepo := vault.Repository{DB: database.Pool}
 	userRepo := users.Repository{DB: database.Pool}
+	inviteRepo := invites.Repository{DB: database.Pool}
+	emailSvc := email.New()
 
 	app := fiber.New()
 	app.Use(cors.New(cors.Config{
@@ -58,9 +62,9 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	auth.RegisterRoutes(app, &userRepo, &vaultRepo, jwtService)
+	auth.RegisterRoutes(app, &userRepo, &vaultRepo, &inviteRepo, emailSvc, jwtService)
 	files.RegisterRoutes(app, &vaultRepo, minIOService, jwtMiddleware)
-	vault.RegisterRoutes(app, &userRepo, &vaultRepo, jwtMiddleware)
+	vault.RegisterRoutes(app, &userRepo, &vaultRepo, &inviteRepo, emailSvc, jwtMiddleware)
 
 	if err := app.Listen(":3000"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
