@@ -194,6 +194,118 @@ func SearchFiles(minIOService *storage.MinIOService) fiber.Handler {
 	}
 }
 
+func DeleteFile(minIOService *storage.MinIOService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		vaultId := locals.VaultId(c)
+		fileKey := locals.RequestedVaultPath(c)
+
+		bucketPath := getBucketPath(vaultId, fileKey)
+
+		// Try as a single file first
+		_, err := minIOService.StatObject(c.Context(), storage.VaultBucket, bucketPath)
+		if err == nil {
+			if err := minIOService.DeleteObject(c.Context(), storage.VaultBucket, bucketPath); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "failed to delete file")
+			}
+			return c.SendStatus(fiber.StatusNoContent)
+		}
+
+		// Treat as a folder — delete all objects under the prefix
+		prefix := bucketPath + "/"
+		var keys []string
+		for obj := range minIOService.ListObjects(c.Context(), storage.VaultBucket, prefix, true) {
+			if obj.Err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "failed to list objects")
+			}
+			keys = append(keys, obj.Key)
+		}
+
+		if len(keys) == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "file or folder not found")
+		}
+
+		for _, key := range keys {
+			if err := minIOService.DeleteObject(c.Context(), storage.VaultBucket, key); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "failed to delete object")
+			}
+		}
+
+		return c.SendStatus(fiber.StatusNoContent)
+	}
+}
+
+func MoveFile(minIOService *storage.MinIOService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		vaultId := locals.VaultId(c)
+		fileKey := locals.RequestedVaultPath(c)
+
+		var req MoveRequest
+		if err := c.BodyParser(&req); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+		}
+
+		if req.DestinationKey == "" {
+			return fiber.NewError(fiber.StatusBadRequest, "destinationKey is required")
+		}
+
+		oldBucketPath := getBucketPath(vaultId, fileKey)
+		filename := path.Base(fileKey)
+		newClientKey := path.Join(req.DestinationKey, filename)
+		newBucketPath := getBucketPath(vaultId, newClientKey)
+
+		_, err := minIOService.StatObject(c.Context(), storage.VaultBucket, oldBucketPath)
+		if err == nil {
+			if exists, _ := minIOService.ObjectExists(c.Context(), storage.VaultBucket, newBucketPath); exists {
+				return fiber.NewError(fiber.StatusConflict, "a file with that name already exists at the destination")
+			}
+			if err := minIOService.CopyObject(c.Context(), storage.VaultBucket, oldBucketPath, newBucketPath); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "failed to move file")
+			}
+			if err := minIOService.DeleteObject(c.Context(), storage.VaultBucket, oldBucketPath); err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "failed to clean up original file")
+			}
+		} else {
+			oldPrefix := oldBucketPath + "/"
+			newPrefix := newBucketPath + "/"
+
+			var keys []string
+			for obj := range minIOService.ListObjects(c.Context(), storage.VaultBucket, oldPrefix, true) {
+				if obj.Err != nil {
+					return fiber.NewError(fiber.StatusInternalServerError, "failed to list objects")
+				}
+				keys = append(keys, obj.Key)
+			}
+
+			if len(keys) == 0 {
+				return fiber.NewError(fiber.StatusNotFound, "file or folder not found")
+			}
+
+			for obj := range minIOService.ListObjects(c.Context(), storage.VaultBucket, newPrefix, false) {
+				if obj.Err == nil {
+					return fiber.NewError(fiber.StatusConflict, "a folder with that name already exists at the destination")
+				}
+				break
+			}
+
+			for _, key := range keys {
+				suffix := strings.TrimPrefix(key, oldPrefix)
+				newKey := newPrefix + suffix
+				if err := minIOService.CopyObject(c.Context(), storage.VaultBucket, key, newKey); err != nil {
+					return fiber.NewError(fiber.StatusInternalServerError, "failed to move folder")
+				}
+				if err := minIOService.DeleteObject(c.Context(), storage.VaultBucket, key); err != nil {
+					return fiber.NewError(fiber.StatusInternalServerError, "failed to clean up original objects")
+				}
+			}
+		}
+
+		return c.JSON(FileResponse{
+			Name: filename,
+			Key:  newClientKey,
+		})
+	}
+}
+
 func RenameFile(minIOService *storage.MinIOService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := locals.VaultId(c)

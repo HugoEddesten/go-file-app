@@ -1,5 +1,5 @@
 // DragProvider.tsx
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { DragContext } from "./DragContext";
 import type { ClassNameValue } from "tailwind-merge";
 
@@ -24,6 +24,8 @@ export const DragProvider = ({
   const dragCounter = useRef(0);
   const ref = useRef<HTMLDivElement>(null);
 
+  const parentCtx = useContext(DragContext);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -31,6 +33,7 @@ export const DragProvider = ({
     const handleDragEnter = (e: DragEvent) => {
       dragCounter.current++;
       e.stopPropagation();
+      e.preventDefault();
       if (dragCounter.current === 1) {
         setIsOver(true);
         onEnter?.(e);
@@ -40,6 +43,7 @@ export const DragProvider = ({
     const handleDragLeave = (e: DragEvent) => {
       dragCounter.current--;
       e.stopPropagation();
+      e.preventDefault();
       if (dragCounter.current === 0) {
         setIsOver(false);
         onLeave?.(e);
@@ -81,7 +85,13 @@ export const DragProvider = ({
   }, [onEnter, onLeave, onDrop]);
 
   return (
-    <DragContext.Provider value={{ isOver }}>
+    <DragContext.Provider
+      value={{
+        isOver,
+        payload: parentCtx?.payload ?? null,
+        setPayload: parentCtx?.setPayload ?? (() => {}),
+      }}
+    >
       <div className={`${className}`} ref={ref}>
         {children}
       </div>

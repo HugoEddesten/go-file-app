@@ -1,9 +1,12 @@
 import z from "zod";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from "../../../components/ui/dialog";
 import { useState, type ReactNode } from "react";
@@ -51,20 +54,26 @@ export const ShareVaultModal = ({
   const form = useForm<z.infer<typeof shareVaultFormSchema>>({
     resolver: zodResolver(shareVaultFormSchema),
     defaultValues: {
-      email: '',
+      email: "",
       path: defaultPath,
       role: defaultRole,
     },
   });
 
   const handleShare = async (values: z.infer<typeof shareVaultFormSchema>) => {
-    await api.post(`vault/assign-user/${vaultId}`, values)
-
+    await api.post(`vault/assign-user/${vaultId}`, values);
+    form.reset();
     onOpenChange(false);
-  }
+  };
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <Dialog
+      onOpenChange={(open) => {
+        form.reset();
+        onOpenChange(open);
+      }}
+      open={open}
+    >
       {children && (
         <DialogTrigger asChild className="">
           {children}
@@ -72,11 +81,17 @@ export const ShareVaultModal = ({
       )}
 
       <DialogContent>
-        <DialogHeader>
-          <h3>Share vault</h3>
-        </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleShare)}>
+          <form
+            onSubmit={form.handleSubmit(handleShare)}
+            className="flex flex-col gap-4"
+          >
+            <DialogHeader>
+              <DialogTitle>Share folder</DialogTitle>
+              <DialogDescription>
+                Give a user access to this folders and its sub-folders
+              </DialogDescription>
+            </DialogHeader>
             <FieldGroup>
               <Controller
                 name="email"
@@ -100,7 +115,7 @@ export const ShareVaultModal = ({
                       value={field.value}
                       open={comboboxOpen}
                       onOpenChange={setComboboxOpen}
-                      />
+                    />
                   </Field>
                 )}
               />
@@ -116,6 +131,9 @@ export const ShareVaultModal = ({
               />
             </FieldGroup>
             <DialogFooter>
+              <DialogClose asChild>
+                <Button variant={"outline"}>Close</Button>
+              </DialogClose>
               <Button>Share</Button>
             </DialogFooter>
           </form>

@@ -1,23 +1,20 @@
 import { useState } from "react";
 import { Card } from "../../components/ui/card";
-import { DragContext } from "../../contexts/DragContext";
 import { DragProvider } from "../../contexts/DragProvider";
+import { DragStateProvider } from "../../contexts/DragStateProvider";
 import { cn } from "../../lib/utils";
 import { useFiles } from "./api/getFiles";
 import { FileItem } from "./components/FileItem";
 import { api } from "../../lib/api";
 import { queryClient } from "../../lib/queryClient";
-import { Input } from "../../components/ui/input";
 import { FolderItem } from "./components/FolderItem";
+import { PathBreadcrumb } from "./components/PathBreadcrumb";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { FileLibraryMenuBar } from "./components/FileLibraryMenuBar";
 import { MaximizedSpinner } from "../../components/ui/maximizedSpinner";
 import { Sidebar } from "./components/sidebar/Sidebar";
-import {
-  useLocation,
-  useOutletContext,
-} from "react-router-dom";
+import { useLocation, useOutletContext } from "react-router-dom";
 
 export type FileData = {
   Name: string;
@@ -33,8 +30,9 @@ export const Home = () => {
 
   const vaultId = useOutletContext() as number;
   const { data, isLoading } = useFiles({ vaultId: vaultId, path: currentDir });
-  console.log(data)
   
+  const files = data ?? [];
+
   const handleDrop = async (e: DragEvent) => {
     setIsDragging(false);
     const files = Array.from(e.dataTransfer?.files ?? []);
@@ -55,8 +53,6 @@ export const Home = () => {
     setCurrentDir(newPath);
   };
 
-  const files = data ?? [];
-  console.log(files)
   return (
     <div className="flex flex-col h-full">
       <div className="grid grid-cols-1 md:grid-cols-8 h-full gap-4 p-4">
@@ -64,15 +60,15 @@ export const Home = () => {
           className="p-4 md:col-span-6 relative flex-wrap overflow-hidden w-full h-full gap-4"
           onClick={() => setSelectedFile(undefined)}
         >
-          <DragContext value={{ isOver: false }}>
+          <DragStateProvider>
             <DragProvider
               detectAll={true}
-              onEnter={() => {
-                console.log("parent in");
-                setIsDragging(true);
+              onEnter={(e) => {
+                if (!!e?.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+                  setIsDragging(true);
+                }
               }}
               onLeave={() => {
-                console.log("parent out");
                 setIsDragging(false);
               }}
               onDrop={(e) => handleDrop(e)}
@@ -85,15 +81,19 @@ export const Home = () => {
                 >
                   <ChevronLeft className="w-5! h-5!" />
                 </Button>
-                <Input readOnly value={currentDir} />
+                <PathBreadcrumb
+                  currentDir={currentDir}
+                  vaultId={vaultId}
+                  onSegmentClick={(segment) => setCurrentDir(segment.path)}
+                />
               </div>
               <div className="flex flex-col h-full gap-2">
-                <FileLibraryMenuBar currentDir={currentDir} vaultId={vaultId}/>
+                <FileLibraryMenuBar currentDir={currentDir} vaultId={vaultId} />
 
                 <Card
                   className={cn(
                     "shadow-inset-md p-4 h-full rounded-md",
-                    isDragging && "outline-dashed"
+                    isDragging && "outline-dashed",
                   )}
                 >
                   <div className="flex gap-4 flex-wrap h-full content-start">
@@ -125,7 +125,7 @@ export const Home = () => {
                 </Card>
               </div>
             </DragProvider>
-          </DragContext>
+          </DragStateProvider>
         </Card>
         <Sidebar
           selectedFile={selectedFile}

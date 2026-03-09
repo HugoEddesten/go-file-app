@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { Separator } from "../../components/ui/separator";
 import { Database } from "lucide-react";
+import { useAuthQuery } from "../router/api/useAuth";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `text-sm px-3 py-1.5 rounded-md transition-colors ${
@@ -10,6 +11,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 export const Nav = () => {
+  const { data: user } = useAuthQuery()
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex items-center gap-1 px-4 h-12">
@@ -19,10 +21,14 @@ export const Nav = () => {
         >
           <Database size={18} />
         </NavLink>
-        <NavLink to={"/"} end className={navLinkClass}>
+        <NavLink to={"/"} end hidden={!user?.userId} className={navLinkClass}>
           Home
         </NavLink>
-        <NavLink to={"/profile"} className={navLinkClass}>
+        <NavLink
+          to={"/profile"}
+          hidden={!user?.userId}
+          className={navLinkClass}
+        >
           Profile
         </NavLink>
       </div>
