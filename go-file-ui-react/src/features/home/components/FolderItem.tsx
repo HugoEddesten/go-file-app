@@ -1,5 +1,6 @@
 import { Delete, DownloadCloud, Folder, Share } from "lucide-react";
 import type { FileData } from "../Home";
+import { useDragPayload } from "../../../contexts/DragContext";
 import { cn } from "../../../lib/utils";
 import {
   ContextMenu,
@@ -17,6 +18,7 @@ import { useVaults } from "../../vaults/api/getVaults";
 import { MaximizedSpinner } from "../../../components/ui/maximizedSpinner";
 import { FolderUser } from "../../../components/ui/FolderUser";
 import { useRenameFile } from "../api/renameFile";
+import { useDeleteFile } from "../api/deleteFile";
 import { Input } from "../../../components/ui/input";
 
 export const FolderItem = ({
@@ -32,6 +34,7 @@ export const FolderItem = ({
   const [isRenaming, setIsRenaming] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
+  const dragPayload = useDragPayload<FileData>();
   const { data: vaults } = useVaults({});
 
   if (!vaults) {
@@ -39,6 +42,10 @@ export const FolderItem = ({
   }
 
   const { mutateAsync: renameFileAsync } = useRenameFile({
+    path: file.Key,
+    vaultId,
+  });
+  const { mutateAsync: deleteFileAsync } = useDeleteFile({
     path: file.Key,
     vaultId,
   });
@@ -53,14 +60,22 @@ export const FolderItem = ({
 
   const handleDrop = async (e: DragEvent) => {
     setIsOver(false);
-    const files = Array.from(e.dataTransfer?.files ?? []);
-    if (!files.length) return;
+
+    if (dragPayload) {
+      await api.put(`/files/${vaultId}/move/${dragPayload.Key}`, {
+        destinationKey: file.Key,
+      });
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+      return;
+    }
+
+    const droppedFiles = Array.from(e.dataTransfer?.files ?? []);
+    if (!droppedFiles.length) return;
 
     const formData = new FormData();
+    formData.append("file", droppedFiles[0]);
 
-    formData.append("file", files?.[0]);
-
-    await api.post(`/files/upload/${file.Key}`, formData);
+    await api.post(`/files/${vaultId}/upload/${file.Key}`, formData);
     queryClient.invalidateQueries({ queryKey: ["files", file.Key] });
   };
 
@@ -121,7 +136,7 @@ export const FolderItem = ({
                 <DownloadCloud className="text-primary" />
               </ContextMenuShortcut>
             </ContextMenuItem>
-            <ContextMenuItem>
+            <ContextMenuItem onClick={() => deleteFileAsync()}>
               Delete file
               <ContextMenuShortcut>
                 <Delete className="text-primary" />

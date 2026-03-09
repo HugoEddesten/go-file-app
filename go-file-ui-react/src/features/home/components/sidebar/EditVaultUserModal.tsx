@@ -137,7 +137,7 @@ export const EditVaultUserModal = ({
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={form.handleSubmit(handleSave)}>
+          <form onSubmit={form.handleSubmit(handleSave)} className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 overflow-y-auto max-h-[50vh] pr-1">
               {fields.map((field, index) => (
                 <div
@@ -197,16 +197,16 @@ export const EditVaultUserModal = ({
                   </Button>
                 </div>
               ))}
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full border-dashed text-muted-foreground hover:text-foreground gap-2"
-                onClick={() => append({ path: "/", role: 4, vaultUserId: null })}
-              >
-                <PlusCircle className="w-4 h-4" />
-                Add permission
-              </Button>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-dashed text-muted-foreground hover:text-foreground gap-2"
+              onClick={() => append({ path: "/", role: 4, vaultUserId: null })}
+            >
+              <PlusCircle className="w-4 h-4" />
+              Add permission
+            </Button>
 
             <DialogFooter className="mt-4">
               <DialogClose asChild>

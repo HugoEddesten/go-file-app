@@ -16,3 +16,7 @@ type FileMetadata struct {
 type RenameRequest struct {
 	NewName string `json:"newName"`
 }
+
+type MoveRequest struct {
+	DestinationKey string `json:"destinationKey"`
+}

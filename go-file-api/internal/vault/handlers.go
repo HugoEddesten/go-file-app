@@ -87,6 +87,9 @@ func UpdateVaultUser(vaultRepo *Repository) fiber.Handler {
 		if err := c.BodyParser(body); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
 		}
+		if body.Role == VaultRoleOwner {
+			return fiber.NewError(fiber.StatusBadRequest, "Cant set role to owner")
+		}
 
 		adminEntries, err := vaultRepo.GetVaultUsers(ctx, vaultId, adminUserId)
 		if err != nil {

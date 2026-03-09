@@ -11,6 +11,8 @@ import {
 import { useState } from "react";
 import { Input } from "../../../components/ui/input";
 import { useRenameFile } from "../api/renameFile";
+import { useDeleteFile } from "../api/deleteFile";
+import { DragSource } from "../../../contexts/DragSource";
 
 export const FileItem = ({
   file,
@@ -29,6 +31,10 @@ export const FileItem = ({
     path: file.Key,
     vaultId,
   });
+  const { mutateAsync: deleteFileAsync } = useDeleteFile({
+    path: file.Key,
+    vaultId,
+  });
 
   const handleDownload = () => {
     window.location.href = `${
@@ -37,7 +43,8 @@ export const FileItem = ({
   };
 
   return (
-    <div
+    <DragSource<FileData>
+      payload={file}
       className="w-18 h-18"
       onClick={(e) => {
         e.stopPropagation();
@@ -46,7 +53,7 @@ export const FileItem = ({
     >
       <ContextMenu>
         <ContextMenuTrigger className={cn(selected && "text-primary")}>
-          <div className="flex justify-center w-full">
+          <div className="flex justify-center w-full bg-none">
             <File />
           </div>
           <div
@@ -86,7 +93,7 @@ export const FileItem = ({
               <CopyCheck className="text-primary" />
             </ContextMenuShortcut>
           </ContextMenuItem>
-          <ContextMenuItem>
+          <ContextMenuItem onClick={() => deleteFileAsync()}>
             Delete file
             <ContextMenuShortcut>
               <Delete className="text-primary" />
@@ -94,6 +101,6 @@ export const FileItem = ({
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
-    </div>
+    </DragSource>
   );
 };

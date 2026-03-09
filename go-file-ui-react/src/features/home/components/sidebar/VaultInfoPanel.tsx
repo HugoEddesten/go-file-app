@@ -33,7 +33,7 @@ export const VaultInfoPanel = ({
 
   return (
     <Card className="md:col-span-2 p-4 gap-2 flex">
-      <Tabs className="h-full">
+      <Tabs className="h-full" defaultValue="directories">
         <TabsList className="w-full flex justify-start">
           <TabsTrigger value="directories">Your Directories</TabsTrigger>
           {isAdminOrOwner && <TabsTrigger value="users">Users</TabsTrigger>}
