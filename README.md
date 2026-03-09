@@ -180,6 +180,7 @@ The `internal/email` package provides a provider-agnostic `EmailService` interfa
 | User registers | Welcome email to the new user |
 | Vault shared with existing user | "You now have access to X" notification |
 | Vault shared with unknown email | Invite email with a registration link |
+| User clicks reset password | Email with link to reset password page |
 
 ### Vault invite flow
 
