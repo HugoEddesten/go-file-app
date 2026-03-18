@@ -10,6 +10,7 @@ services:
       - "443:443"
     volumes:
       - ../Caddyfile:/etc/caddy/Caddyfile
+      - ../go-file-ui-react/dist:/srv/frontend/dist:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
