@@ -27,7 +27,7 @@ export const VaultItem = ({ vault }: { vault: Vault }) => {
 
   return (
     <Card
-      className="w-64 p-4 cursor-pointer hover:shadow-md hover:bg-accent/50 transition-all"
+      className="w-full sm:w-64 p-4 cursor-pointer hover:shadow-md hover:bg-accent/50 transition-all"
       onClick={() => handleNavigation(vault.id, me.path)}
     >
       <div className="flex items-start gap-3">

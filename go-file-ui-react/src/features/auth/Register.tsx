@@ -68,8 +68,8 @@ export const Register = () => {
   };
 
   return (
-    <div className="flex w-full h-full items-center justify-center">
-      <Card className="p-4 w-xl flex justify-center items-center">
+    <div className="flex w-full h-full items-center justify-center px-4">
+      <Card className="p-4 w-full max-w-xl flex justify-center items-center">
         <CardTitle className="text-center text-2xl">
           Register an account
         </CardTitle>
@@ -87,7 +87,7 @@ export const Register = () => {
             </FormDescription>
           )}
           <form
-            className="flex flex-col items-center gap-4 w-lg"
+            className="flex flex-col items-center gap-4 w-full"
             onSubmit={form.handleSubmit(handleSubmit)}
           >
             <FieldGroup>

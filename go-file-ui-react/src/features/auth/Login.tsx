@@ -53,14 +53,14 @@ export const Login = () => {
   };
 
   return (
-    <div className="flex w-full h-full items-center justify-center">
-      <Card className="p-4 w-xl flex items-center justify-center">
+    <div className="flex w-full h-full items-center justify-center px-4">
+      <Card className="p-4 w-full max-w-xl flex items-center justify-center">
         <CardTitle className="text-center text-2xl">
           Log in to you account
         </CardTitle>
         <Form {...form}>
           <form
-            className="flex flex-col items-center gap-4 w-lg"
+            className="flex flex-col items-center gap-4 w-full"
             onSubmit={form.handleSubmit(handleSubmit)}
           >
             <FieldGroup>
