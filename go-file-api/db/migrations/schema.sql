@@ -50,7 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_vault_invites_token ON vault_invites(token);
 CREATE INDEX IF NOT EXISTS idx_vault_invites_email ON vault_invites(email);
 
 -- User password reset requests
-CREATE TABLE password_resets (
+CREATE TABLE IF NOT EXISTS password_resets (
     id         SERIAL PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token      TEXT NOT NULL UNIQUE,
@@ -58,4 +58,4 @@ CREATE TABLE password_resets (
     used_at    TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
-CREATE INDEX ON password_resets(token);
+CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
