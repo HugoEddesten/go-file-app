@@ -48,7 +48,7 @@ export const Vaults = () => {
                   <VaultItem key={v.id} vault={v} />
                 ))
               :
-                <p className="text-xs text-muted-foreground truncate mt-0.5">Vaults other people have shared with you will show up here</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Vaults other people have shared with you will show up here</p>
             }
           </div>
         </div>
