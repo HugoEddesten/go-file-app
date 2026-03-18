@@ -43,7 +43,7 @@ jobs:
             cat > /opt/go-file-app/go-file-api/.env << EOF
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+            POSTGRES_DB=${{ vars.POSTGRES_DB }}
             PGADMIN_EMAIL=${{ secrets.PGADMIN_EMAIL }}
             PGADMIN_PASSWORD=${{ secrets.PGADMIN_PASSWORD }}
             MINIO_ROOT_USER=${{ secrets.MINIO_ROOT_USER }}
