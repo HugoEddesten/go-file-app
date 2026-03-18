@@ -1,0 +1,71 @@
+name: deploy-production
+on:
+  workflow_run:
+    workflows: ["test"]
+    branches: [main]
+    types: [completed]
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: go-file-ui-react/package-lock.json
+    
+      - name: Build frontend
+        working-directory: ./go-file-ui-react
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          npm ci
+          npm run build
+    
+      - name: Copy frontend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "go-file-ui-react/dist/"
+          target: "/opt/go-file-app/go-file-ui-react/dist/"
+          strip_components: 2
+    
+      - name: Deploy backend
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            if [ ! -d /opt/go-file-app ]; then
+              git clone https://github.com/${{ github.repository }}.git /opt/go-file-app
+            else
+              cd /opt/go-file-app && git pull origin main
+            fi
+    
+            cat > /opt/go-file-app/go-file-api/.env << EOF
+            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+            PGADMIN_EMAIL=${{ secrets.PGADMIN_EMAIL }}
+            PGADMIN_PASSWORD=${{ secrets.PGADMIN_PASSWORD }}
+            MINIO_ROOT_USER=${{ secrets.MINIO_ROOT_USER }}
+            MINIO_ROOT_PASSWORD=${{ secrets.MINIO_ROOT_PASSWORD }}
+            MINIO_ENDPOINT=minio:9000
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            EMAIL_PROVIDER=${{ vars.EMAIL_PROVIDER }}
+            EMAIL_FROM=${{ vars.EMAIL_FROM }}
+            RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+            EOF
+    
+            cd /opt/go-file-app/go-file-api
+            docker compose -f docker-compose.yml up -d --build
+            docker system prune -f
+      
