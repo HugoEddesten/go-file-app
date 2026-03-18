@@ -49,6 +49,9 @@ func main() {
 	}
 
 	minIOService, err := storage.InitializeStorage()
+	if err != nil {
+		log.Fatalf("Failed to initialize MinIO storage: %v", err)
+	}
 
 	jwtService := jwt.New(os.Getenv("JWT_SECRET"), "go-file-api", time.Hour*24)
 	jwtMiddleware := jwt.Protected(jwtService)
