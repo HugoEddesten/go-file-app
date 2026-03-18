@@ -3,19 +3,17 @@ package storage
 import (
 	"context"
 	"log"
+	"os"
 )
-
-// Example usage - you can delete this file once you're comfortable with the API
 
 // InitializeStorage sets up MinIO and creates the default bucket
 func InitializeStorage() (*MinIOService, error) {
 	// Create MinIO service
-	// These should come from environment variables in production
 	service, err := NewMinIOService(
-		"localhost:9000",
-		"minioadmin",
-		"minioadmin",
-		false, // useSSL - false for local development
+		os.Getenv("MINIO_ENDPOINT"),
+		os.Getenv("MINIO_ROOT_USER"),
+		os.Getenv("MINIO_ROOT_PASSWORD"),
+		false, // useSSL
 	)
 	if err != nil {
 		return nil, err

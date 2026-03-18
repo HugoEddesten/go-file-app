@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
 	"time"
 
 	"go-file-api/db"
@@ -19,12 +20,15 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	// Parse command line flags
 	autoMigrate := flag.Bool("auto-migrate", false, "Automatically run database migrations on startup")
 	flag.Parse()
+
+	godotenv.Load()
 
 	database, err := internaldb.Connect()
 	if err != nil {
@@ -46,7 +50,7 @@ func main() {
 
 	minIOService, err := storage.InitializeStorage()
 
-	jwtService := jwt.New("my_secret_key_123", "go-file-api", time.Hour*24)
+	jwtService := jwt.New(os.Getenv("JWT_SECRET"), "go-file-api", time.Hour*24)
 	jwtMiddleware := jwt.Protected(jwtService)
 
 	vaultRepo := vault.Repository{DB: database.Pool}
@@ -56,7 +60,7 @@ func main() {
 
 	app := fiber.New()
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173",
+		AllowOrigins:     "http://localhost:5173, https://files.eddesten.dev",
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders:     "Origin, Content-Type, Accept",
 		AllowCredentials: true,

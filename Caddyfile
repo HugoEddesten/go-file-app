@@ -1,0 +1,9 @@
+files.eddesten.dev {
+  root * /srv/frontend/dist
+  file_server
+  try_files {path} /index.html
+}
+
+files-api.eddesten.dev {
+  reverse_proxy api:3000
+}
