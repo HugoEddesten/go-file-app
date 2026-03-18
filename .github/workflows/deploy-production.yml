@@ -34,7 +34,7 @@ jobs:
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            if [ ! -d /opt/go-file-app ]; then
+            if [ ! -d /opt/go-file-app/.git ]; then
               git clone https://github.com/${{ github.repository }}.git /opt/go-file-app
             else
               cd /opt/go-file-app && git pull origin main
