@@ -14,9 +14,9 @@ func LoadConfig() *Config {
 	return &Config{
 		Host:     getEnv("DB_HOST", "localhost"),
 		Port:     getEnv("DB_PORT", "5432"),
-		User:     getEnv("POSTGRES_USER", "admin"),
-		Password: getEnv("POSTGRES_PASSWORD", "admin123"),
-		Name:     getEnv("POSTGRES_DB", "filedb"),
+		User:     getEnv("DB_USER", "admin"),
+		Password: getEnv("DB_PASSWORD", "admin123"),
+		Name:     getEnv("DB_NAME", "filedb"),
 	}
 }
 
