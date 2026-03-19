@@ -15,6 +15,14 @@ import { FileLibraryMenuBar } from "./components/FileLibraryMenuBar";
 import { MaximizedSpinner } from "../../components/ui/maximizedSpinner";
 import { Sidebar } from "./components/sidebar/Sidebar";
 import { useLocation, useOutletContext } from "react-router-dom";
+import { useVault } from "./api/getVault";
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+};
 
 export type FileData = {
   Name: string;
@@ -30,6 +38,7 @@ export const Home = () => {
 
   const vaultId = useOutletContext() as number;
   const { data, isLoading } = useFiles({ vaultId: vaultId, path: currentDir });
+  const { data: vault } = useVault(vaultId);
   
   const files = data ?? [];
 
@@ -44,6 +53,7 @@ export const Home = () => {
 
     await api.post(`/files/${vaultId}/upload/${currentDir}`, formData);
     queryClient.invalidateQueries({ queryKey: ["files"] });
+    queryClient.invalidateQueries({ queryKey: ["vault", vaultId] });
   };
 
   const handleGoBack = () => {
@@ -123,6 +133,22 @@ export const Home = () => {
                     )}
                   </div>
                 </Card>
+
+                {vault && (
+                  <div className="flex flex-col gap-1">
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all"
+                        style={{
+                          width: `${Math.min((vault.storageUsedBytes / vault.storageLimitBytes) * 100, 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {formatBytes(vault.storageUsedBytes)} of {formatBytes(vault.storageLimitBytes)} used
+                    </p>
+                  </div>
+                )}
               </div>
             </DragProvider>
           </DragStateProvider>

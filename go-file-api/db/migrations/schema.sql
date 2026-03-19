@@ -59,3 +59,10 @@ CREATE TABLE IF NOT EXISTS password_resets (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
+
+-- Storage tracking columns (safe to run on existing databases)
+ALTER TABLE vaults ADD COLUMN IF NOT EXISTS storage_limit_bytes BIGINT NOT NULL DEFAULT 1073741824;
+ALTER TABLE vaults ADD COLUMN IF NOT EXISTS storage_used_bytes BIGINT NOT NULL DEFAULT 0;
+
+-- Storage tier on users (1 = free, higher = paid tiers)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS storage_tier INTEGER NOT NULL DEFAULT 1;

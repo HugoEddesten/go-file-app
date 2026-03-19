@@ -150,6 +150,8 @@ func (r *Repository) GetVault(ctx context.Context, vaultId int) (*VaultWithUsers
 		SELECT
 			v.id,
 			v.name,
+			v.storage_limit_bytes,
+			v.storage_used_bytes,
 			u.id,
 			u.email,
 			vu.role,
@@ -178,6 +180,8 @@ func (r *Repository) GetVault(ctx context.Context, vaultId int) (*VaultWithUsers
 		if err := rows.Scan(
 			&vaultId,
 			&v.Name,
+			&v.StorageLimitBytes,
+			&v.StorageUsedBytes,
 			&u.Id,
 			&u.Email,
 			&u.Role,
@@ -311,6 +315,36 @@ func (r *Repository) GetVaultName(ctx context.Context, vaultId int) (string, err
 	var name string
 	err := r.DB.QueryRow(ctx, `SELECT name FROM vaults WHERE id = $1`, vaultId).Scan(&name)
 	return name, err
+}
+
+func (r *Repository) GetVaultStorage(ctx context.Context, vaultId int) (*VaultStorage, error) {
+	var s VaultStorage
+	err := r.DB.QueryRow(ctx,
+		`SELECT storage_limit_bytes, storage_used_bytes FROM vaults WHERE id = $1`,
+		vaultId,
+	).Scan(&s.LimitBytes, &s.UsedBytes)
+	return &s, err
+}
+
+func (r *Repository) UpdateStorageUsed(ctx context.Context, vaultId int, delta int64) error {
+	_, err := r.DB.Exec(ctx,
+		`UPDATE vaults SET storage_used_bytes = GREATEST(0, storage_used_bytes + $1) WHERE id = $2`,
+		delta, vaultId,
+	)
+	return err
+}
+
+// SetStorageLimitForOwnedVaults updates the storage limit for all vaults owned by a user.
+// Call this when a user's storage tier changes.
+func (r *Repository) SetStorageLimitForOwnedVaults(ctx context.Context, userId int, limitBytes int64) error {
+	_, err := r.DB.Exec(ctx, `
+		UPDATE vaults SET storage_limit_bytes = $1
+		WHERE id IN (
+			SELECT vault_id FROM vault_users WHERE user_id = $2 AND role = $3
+		)`,
+		limitBytes, userId, VaultRoleOwner,
+	)
+	return err
 }
 
 func (r *Repository) GetVaultUser(ctx context.Context, vaultUserId int) (*VaultUser, error) {

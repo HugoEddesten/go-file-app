@@ -9,10 +9,14 @@ import (
 
 	"go-file-api/db"
 	internaldb "go-file-api/internal/db"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	// Parse command line flags
+	godotenv.Load()
+
 	var (
 		host     = flag.String("host", "", "Database host (default: from env or 'localhost')")
 		port     = flag.String("port", "", "Database port (default: from env or '5432')")

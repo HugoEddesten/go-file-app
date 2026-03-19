@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"go-file-api/internal/locals"
 	"go-file-api/internal/storage"
+	"go-file-api/internal/vault"
 	"path"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func UploadFile(minIOService *storage.MinIOService) fiber.Handler {
+func UploadFile(minIOService *storage.MinIOService, vaultRepo *vault.Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := locals.VaultId(c)
 		fileKey := locals.RequestedVaultPath(c)
@@ -34,6 +35,8 @@ func UploadFile(minIOService *storage.MinIOService) fiber.Handler {
 		if err != nil {
 			return err
 		}
+
+		_ = vaultRepo.UpdateStorageUsed(c.Context(), vaultId, file.Size)
 
 		return c.JSON(fiber.Map{
 			"status":   "uploaded",
@@ -194,7 +197,7 @@ func SearchFiles(minIOService *storage.MinIOService) fiber.Handler {
 	}
 }
 
-func DeleteFile(minIOService *storage.MinIOService) fiber.Handler {
+func DeleteFile(minIOService *storage.MinIOService, vaultRepo *vault.Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		vaultId := locals.VaultId(c)
 		fileKey := locals.RequestedVaultPath(c)
@@ -202,33 +205,41 @@ func DeleteFile(minIOService *storage.MinIOService) fiber.Handler {
 		bucketPath := getBucketPath(vaultId, fileKey)
 
 		// Try as a single file first
-		_, err := minIOService.StatObject(c.Context(), storage.VaultBucket, bucketPath)
+		stat, err := minIOService.StatObject(c.Context(), storage.VaultBucket, bucketPath)
 		if err == nil {
 			if err := minIOService.DeleteObject(c.Context(), storage.VaultBucket, bucketPath); err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "failed to delete file")
 			}
+			_ = vaultRepo.UpdateStorageUsed(c.Context(), vaultId, -stat.Size)
 			return c.SendStatus(fiber.StatusNoContent)
 		}
 
-		// Treat as a folder — delete all objects under the prefix
+		// Treat as a folder — collect all objects with their sizes, then delete
+		type objEntry struct {
+			key  string
+			size int64
+		}
 		prefix := bucketPath + "/"
-		var keys []string
+		var objects []objEntry
 		for obj := range minIOService.ListObjects(c.Context(), storage.VaultBucket, prefix, true) {
 			if obj.Err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "failed to list objects")
 			}
-			keys = append(keys, obj.Key)
+			objects = append(objects, objEntry{obj.Key, obj.Size})
 		}
 
-		if len(keys) == 0 {
+		if len(objects) == 0 {
 			return fiber.NewError(fiber.StatusNotFound, "file or folder not found")
 		}
 
-		for _, key := range keys {
-			if err := minIOService.DeleteObject(c.Context(), storage.VaultBucket, key); err != nil {
+		var freed int64
+		for _, obj := range objects {
+			if err := minIOService.DeleteObject(c.Context(), storage.VaultBucket, obj.key); err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "failed to delete object")
 			}
+			freed += obj.size
 		}
+		_ = vaultRepo.UpdateStorageUsed(c.Context(), vaultId, -freed)
 
 		return c.SendStatus(fiber.StatusNoContent)
 	}
@@ -283,8 +294,9 @@ func MoveFile(minIOService *storage.MinIOService) fiber.Handler {
 			for obj := range minIOService.ListObjects(c.Context(), storage.VaultBucket, newPrefix, false) {
 				if obj.Err == nil {
 					return fiber.NewError(fiber.StatusConflict, "a folder with that name already exists at the destination")
+				} else {
+					break
 				}
-				break
 			}
 
 			for _, key := range keys {

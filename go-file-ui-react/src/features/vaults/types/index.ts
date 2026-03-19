@@ -2,6 +2,8 @@ export type Vault = {
   id: number;
   name: string;
   users: VaultUser[];
+  storageLimitBytes: number;
+  storageUsedBytes: number;
 };
 
 export type VaultUser = {
