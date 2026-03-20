@@ -1,9 +1,11 @@
 files.eddesten.dev {
+  tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
   root * /srv/frontend/dist
   file_server
   try_files {path} /index.html
 }
 
 files-api.eddesten.dev {
+  tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
   reverse_proxy api:3000
 }

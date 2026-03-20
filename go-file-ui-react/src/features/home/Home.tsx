@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Card } from "../../components/ui/card";
 import { DragProvider } from "../../contexts/DragProvider";
 import { DragStateProvider } from "../../contexts/DragStateProvider";
@@ -14,8 +15,8 @@ import { Button } from "../../components/ui/button";
 import { FileLibraryMenuBar } from "./components/FileLibraryMenuBar";
 import { MaximizedSpinner } from "../../components/ui/maximizedSpinner";
 import { Sidebar } from "./components/sidebar/Sidebar";
-import { useLocation, useOutletContext } from "react-router-dom";
 import { useVault } from "./api/getVault";
+import { useAuth } from "../../hooks/useAuth";
 
 const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -30,16 +31,32 @@ export type FileData = {
 };
 
 export const Home = () => {
-  const { dir } = useLocation().state;
+  const { vaultId: vaultIdParam } = useParams<{ vaultId: string }>();
+  const vaultId = Number(vaultIdParam);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { userId } = useAuth();
+  const navigate = useNavigate();
 
   const [isDragging, setIsDragging] = useState(false);
-  const [currentDir, setCurrentDir] = useState<string>(dir);
   const [selectedFile, setSelectedFile] = useState<string | undefined>();
 
-  const vaultId = useOutletContext() as number;
-  const { data, isLoading } = useFiles({ vaultId: vaultId, path: currentDir });
-  const { data: vault } = useVault(vaultId);
-  
+  const { data: vault, isLoading: isVaultLoading } = useVault(vaultId);
+
+  const startingDir = vault?.users.find((u) => u.id === userId)?.path ?? null;
+
+  useEffect(() => {
+    if (startingDir !== null && !searchParams.get("path")) {
+      setSearchParams({ path: startingDir }, { replace: true });
+    }
+  }, [startingDir]);
+
+  const currentDir = searchParams.get("path") ?? "";
+
+  const { data, isLoading } = useFiles({
+    vaultId,
+    path: currentDir,
+    enabled: !!currentDir,
+  });
   const files = data ?? [];
 
   const handleDrop = async (e: DragEvent) => {
@@ -48,7 +65,6 @@ export const Home = () => {
     if (!files.length) return;
 
     const formData = new FormData();
-
     formData.append("file", files?.[0]);
 
     await api.post(`/files/${vaultId}/upload/${currentDir}`, formData);
@@ -57,11 +73,21 @@ export const Home = () => {
   };
 
   const handleGoBack = () => {
-    const pathParts = currentDir.replace(dir, "").split("/");
-
-    const newPath = dir + pathParts.slice(0, pathParts.length - 1).join("/");
-    setCurrentDir(newPath);
+    if (!startingDir) return;
+    const pathParts = currentDir.replace(startingDir, "").split("/");
+    const newPath =
+      startingDir + pathParts.slice(0, pathParts.length - 1).join("/");
+    setSearchParams({ path: newPath });
   };
+
+  if (isLoading || isVaultLoading) {
+    return <MaximizedSpinner />;
+  }
+
+  if (!vault) {
+    navigate("/");
+    return null;
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -74,7 +100,10 @@ export const Home = () => {
             <DragProvider
               detectAll={true}
               onEnter={(e) => {
-                if (!!e?.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+                if (
+                  !!e?.dataTransfer?.items &&
+                  e.dataTransfer.items.length > 0
+                ) {
                   setIsDragging(true);
                 }
               }}
@@ -94,7 +123,9 @@ export const Home = () => {
                 <PathBreadcrumb
                   currentDir={currentDir}
                   vaultId={vaultId}
-                  onSegmentClick={(segment) => setCurrentDir(segment.path)}
+                  onSegmentClick={(segment) =>
+                    setSearchParams({ path: segment.path })
+                  }
                 />
               </div>
               <div className="flex flex-col h-full gap-2">
@@ -107,48 +138,44 @@ export const Home = () => {
                   )}
                 >
                   <div className="flex gap-4 flex-wrap h-full content-start">
-                    {isLoading ? (
-                      <MaximizedSpinner />
-                    ) : (
-                      files.map((f) => (
-                        <div key={f.Key} className="h-fit">
-                          {f.Name.includes(".") ? (
-                            <FileItem
-                              key={f.Key}
-                              file={f}
-                              selected={selectedFile === f.Key}
-                              onClick={() => setSelectedFile(f.Key)}
-                              vaultId={vaultId}
-                            />
-                          ) : (
-                            <FolderItem
-                              onDoubleClick={() => setCurrentDir(f.Key)}
-                              key={f.Key}
-                              file={f}
-                              vaultId={vaultId}
-                            />
-                          )}
-                        </div>
-                      ))
-                    )}
+                    {files.map((f) => (
+                      <div key={f.Key} className="h-fit">
+                        {f.Name.includes(".") ? (
+                          <FileItem
+                            key={f.Key}
+                            file={f}
+                            selected={selectedFile === f.Key}
+                            onClick={() => setSelectedFile(f.Key)}
+                            vaultId={vaultId}
+                          />
+                        ) : (
+                          <FolderItem
+                            onDoubleClick={() =>
+                              setSearchParams({ path: f.Key })
+                            }
+                            key={f.Key}
+                            file={f}
+                            vaultId={vaultId}
+                          />
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </Card>
-
-                {vault && (
-                  <div className="flex flex-col gap-1">
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all"
-                        style={{
-                          width: `${Math.min((vault.storageUsedBytes / vault.storageLimitBytes) * 100, 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {formatBytes(vault.storageUsedBytes)} of {formatBytes(vault.storageLimitBytes)} used
-                    </p>
+                <div className="flex flex-col gap-1">
+                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all"
+                      style={{
+                        width: `${Math.min((vault.storageUsedBytes / vault.storageLimitBytes) * 100, 100)}%`,
+                      }}
+                    />
                   </div>
-                )}
+                  <p className="text-xs text-muted-foreground">
+                    {formatBytes(vault.storageUsedBytes)} of{" "}
+                    {formatBytes(vault.storageLimitBytes)} used
+                  </p>
+                </div>
               </div>
             </DragProvider>
           </DragStateProvider>
@@ -156,7 +183,7 @@ export const Home = () => {
         <Sidebar
           selectedFile={selectedFile}
           vaultId={vaultId}
-          setCurrentDir={setCurrentDir}
+          setCurrentDir={(path) => setSearchParams({ path: String(path) })}
         />
       </div>
     </div>

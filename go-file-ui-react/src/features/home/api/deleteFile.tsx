@@ -18,6 +18,7 @@ export const useDeleteFile = ({
     mutationFn: () => deleteFile(vaultId, path),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files", vaultId] });
+      queryClient.invalidateQueries({ queryKey: ["vault", vaultId] });
     },
   });
 };

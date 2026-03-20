@@ -31,12 +31,17 @@ func UploadFile(minIOService *storage.MinIOService, vaultRepo *vault.Repository)
 		savePath := path.Join(prefix, file.Filename)
 		contentType := getContentType(fileReader)
 
-		err = minIOService.UploadObject(c.Context(), storage.VaultBucket, savePath, fileReader, -1, contentType)
-		if err != nil {
-			return err
+		var oldSize int64
+		if existing, err := minIOService.StatObject(c.Context(), storage.VaultBucket, savePath); err == nil {
+			oldSize = existing.Size
 		}
 
-		_ = vaultRepo.UpdateStorageUsed(c.Context(), vaultId, file.Size)
+		err = minIOService.UploadObject(c.Context(), storage.VaultBucket, savePath, fileReader, -1, contentType)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to upload file")
+		}
+
+		_ = vaultRepo.UpdateStorageUsed(c.Context(), vaultId, file.Size-oldSize)
 
 		return c.JSON(fiber.Map{
 			"status":   "uploaded",

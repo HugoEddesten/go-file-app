@@ -1,20 +1,13 @@
 import { Card } from "../../../components/ui/card";
 import { getVaultUserRole, VaultUserRole, type Vault } from "../types";
 import { Database } from "lucide-react";
-import { useVaultStore } from "../../../contexts/FileLibraryContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
 import { MaximizedSpinner } from "../../../components/ui/maximizedSpinner";
 
 export const VaultItem = ({ vault }: { vault: Vault }) => {
   const { userId } = useAuth();
-  const setVaultId = useVaultStore((state) => state.setVaultId);
   const navigate = useNavigate();
-
-  const handleNavigation = (vaultId: number, path: string) => {
-    setVaultId(vaultId);
-    navigate(`/vault`, { replace: true, state: { dir: path } });
-  };
 
   const owner = vault.users.find((u) => u.role === VaultUserRole.OWNER);
   const me = vault.users.find((u) => u.id == userId);
@@ -28,7 +21,7 @@ export const VaultItem = ({ vault }: { vault: Vault }) => {
   return (
     <Card
       className="w-full sm:w-64 p-4 cursor-pointer hover:shadow-md hover:bg-accent/50 transition-all"
-      onClick={() => handleNavigation(vault.id, me.path)}
+      onClick={() => navigate(`/vault/${vault.id}`)}
     >
       <div className="flex items-start gap-3">
         <div className="rounded-md bg-primary/10 p-2 text-primary shrink-0">

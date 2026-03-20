@@ -7,9 +7,10 @@ const getFiles = async (vaultId: number, path: string): Promise<FileData[]> => {
   return response.data;
 };
 
-export const useFiles = ({ vaultId, path }: { vaultId: number, path: string }) => {
+export const useFiles = ({ vaultId, path, enabled = true }: { vaultId: number, path: string, enabled?: boolean }) => {
   return useQuery({
     queryKey: ["files", vaultId, path],
     queryFn: () => getFiles(vaultId, path),
+    enabled,
   });
 };

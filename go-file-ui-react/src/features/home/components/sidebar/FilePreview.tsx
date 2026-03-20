@@ -41,7 +41,7 @@ export const FilePreview = ({
   };
 
   return (
-    <Card className="md:col-span-2 p-2 flex">
+    <Card className="md:col-span-2 h-full p-2 flex">
       {isLoading ? (
         <MaximizedSpinner />
       ) : (
@@ -63,7 +63,9 @@ export const FilePreview = ({
               />
             </Field>
           </FieldGroup>
-          {renderPreview()}
+          <div className="flex justify-center items-center overflow-hidden max-h-full max-w-full">
+            {renderPreview()}
+          </div>
         </div>
       )}
     </Card>
