@@ -11,6 +11,7 @@ services:
     volumes:
       - ../Caddyfile:/etc/caddy/Caddyfile
       - ../go-file-ui-react/dist:/srv/frontend/dist:ro
+      - /etc/caddy/certs:/etc/caddy/certs:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

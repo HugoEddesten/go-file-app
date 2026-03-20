@@ -22,9 +22,11 @@ type VaultUser struct {
 }
 
 type VaultWithUsers struct {
-	Id    int           `json:"id"`
-	Name  string        `json:"name"`
-	Users []UserInVault `json:"users"`
+	Id               int           `json:"id"`
+	Name             string        `json:"name"`
+	Users            []UserInVault `json:"users"`
+	StorageLimitBytes int64        `json:"storageLimitBytes"`
+	StorageUsedBytes  int64        `json:"storageUsedBytes"`
 }
 
 type UserInVault struct {
@@ -57,6 +59,11 @@ type RemoveVaultUserRequest struct {
 
 type PathBodyValidation struct {
 	Path string `json:"path"`
+}
+
+type VaultStorage struct {
+	LimitBytes int64
+	UsedBytes  int64
 }
 
 type VaultRole int

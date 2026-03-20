@@ -12,15 +12,15 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    if (import.meta.env.DEV) {
-      // Let Vite's error overlay take over in development
-      throw error;
-    }
+    // if (import.meta.env.DEV) {
+    //   // Let Vite's error overlay take over in development
+    //   throw error;
+    // }
     console.error("Uncaught error:", error, info);
   }
 
   render() {
-    if (this.state.error && import.meta.env.PROD) {
+    if (this.state.error) { //&& import.meta.env.PROD) {
       return (
         <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 p-8 text-center">
           <h1 className="text-2xl font-semibold">Something went wrong</h1>

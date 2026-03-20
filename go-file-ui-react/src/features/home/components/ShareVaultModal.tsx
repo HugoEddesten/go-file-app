@@ -20,7 +20,7 @@ import { Combobox } from "../../../components/ui/combobox";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { api } from "../../../lib/api";
-import { useOutletContext } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 const shareVaultFormSchema = z.object({
   email: z.email(),
@@ -49,7 +49,8 @@ export const ShareVaultModal = ({
     };
   });
 
-  const vaultId = useOutletContext() as number;
+  const { vaultId: vaultIdParam } = useParams<{ vaultId: string }>();
+  const vaultId = Number(vaultIdParam);
 
   const form = useForm<z.infer<typeof shareVaultFormSchema>>({
     resolver: zodResolver(shareVaultFormSchema),

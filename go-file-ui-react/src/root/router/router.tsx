@@ -36,9 +36,9 @@ export const router = createBrowserRouter([
         ]
       },
       {
-        element: <ProtectedRoute requireVaultId={true} />,
+        element: <ProtectedRoute />,
         children: [
-          { path: "/vault", element: <Home />},
+          { path: "/vault/:vaultId", element: <Home />},
         ]
       }
     ]

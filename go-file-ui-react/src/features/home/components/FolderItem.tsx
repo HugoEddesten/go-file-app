@@ -20,6 +20,7 @@ import { FolderUser } from "../../../components/ui/FolderUser";
 import { useRenameFile } from "../api/renameFile";
 import { useDeleteFile } from "../api/deleteFile";
 import { Input } from "../../../components/ui/input";
+import { useVault } from "../api/getVault";
 
 export const FolderItem = ({
   file,
@@ -35,11 +36,7 @@ export const FolderItem = ({
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const dragPayload = useDragPayload<FileData>();
-  const { data: vaults } = useVaults({});
-
-  if (!vaults) {
-    return <MaximizedSpinner />;
-  }
+  const { data: vault } = useVault(vaultId);
 
   const { mutateAsync: renameFileAsync } = useRenameFile({
     path: file.Key,
@@ -49,8 +46,6 @@ export const FolderItem = ({
     path: file.Key,
     vaultId,
   });
-
-  const currentVault = vaults.find((v) => v.id === vaultId);
 
   const handleDownload = () => {
     window.location.href = `${
@@ -79,6 +74,10 @@ export const FolderItem = ({
     queryClient.invalidateQueries({ queryKey: ["files", file.Key] });
   };
 
+  if (!vault) {
+    return <MaximizedSpinner />;
+  }
+
   return (
     <div className="w-18 h-18">
       <DragProvider
@@ -92,7 +91,7 @@ export const FolderItem = ({
             className={cn(isOver && "text-primary")}
           >
             <div className="flex justify-center w-full bg-card">
-              {currentVault?.users.some((vu) => vu.path === file.Key) ? (
+              {vault?.users.some((vu) => vu.path === file.Key) ? (
                 <FolderUser />
               ) : (
                 <Folder />

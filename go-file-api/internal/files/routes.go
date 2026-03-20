@@ -10,7 +10,7 @@ import (
 func RegisterRoutes(app *fiber.App, vaultRepo *vault.Repository, minIOService *storage.MinIOService, jwtMiddleware fiber.Handler) {
 	group := app.Group("/files/:vaultId", jwtMiddleware)
 
-	group.Post("upload/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleEditor), UploadFile(minIOService))
+	group.Post("upload/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleEditor), StorageLimitMiddleware(vaultRepo), UploadFile(minIOService, vaultRepo))
 	group.Post("create/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleEditor), CreateFile(minIOService))
 	group.Get("download/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleViewer), DownloadFile(minIOService))
 	group.Get("metadata/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleViewer), GetMetadata(minIOService))
@@ -18,5 +18,5 @@ func RegisterRoutes(app *fiber.App, vaultRepo *vault.Repository, minIOService *s
 	group.Get("search", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleViewer), SearchFiles(minIOService))
 	group.Put("rename/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleEditor), RenameFile(minIOService))
 	group.Put("move/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleEditor), MoveFile(minIOService))
-	group.Delete("delete/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleEditor), DeleteFile(minIOService))
+	group.Delete("delete/*", vault.VaultAccessMiddleware(vaultRepo, vault.VaultRoleEditor), DeleteFile(minIOService, vaultRepo))
 }
