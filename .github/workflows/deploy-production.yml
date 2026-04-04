@@ -44,6 +44,7 @@ jobs:
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
             POSTGRES_DB=${{ vars.POSTGRES_DB }}
+            APP_URL=${{ secrets.APP_URL }}
             PGADMIN_EMAIL=${{ secrets.PGADMIN_EMAIL }}
             PGADMIN_PASSWORD=${{ secrets.PGADMIN_PASSWORD }}
             MINIO_ROOT_USER=${{ secrets.MINIO_ROOT_USER }}
