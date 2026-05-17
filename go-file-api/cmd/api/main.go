@@ -10,7 +10,6 @@ import (
 	"go-file-api/db"
 	"go-file-api/internal/auth"
 	internaldb "go-file-api/internal/db"
-	"go-file-api/internal/email"
 	"go-file-api/internal/files"
 	"go-file-api/internal/invites"
 	"go-file-api/internal/jwt"
@@ -18,9 +17,12 @@ import (
 	"go-file-api/internal/users"
 	"go-file-api/internal/vault"
 
+	"eddesten-mail/client"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -59,7 +61,10 @@ func main() {
 	vaultRepo := vault.Repository{DB: database.Pool}
 	userRepo := users.Repository{DB: database.Pool}
 	inviteRepo := invites.Repository{DB: database.Pool}
-	emailSvc := email.New()
+	rdb := redis.NewClient(&redis.Options{
+		Addr: os.Getenv("REDIS_ADDR"),
+	})
+	emailClient := client.New(rdb)
 
 	app := fiber.New()
 	app.Use(cors.New(cors.Config{
@@ -69,9 +74,9 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	auth.RegisterRoutes(app, &userRepo, &vaultRepo, &inviteRepo, emailSvc, jwtService)
+	auth.RegisterRoutes(app, &userRepo, &vaultRepo, &inviteRepo, emailClient, jwtService)
 	files.RegisterRoutes(app, &vaultRepo, minIOService, jwtMiddleware)
-	vault.RegisterRoutes(app, &userRepo, &vaultRepo, &inviteRepo, emailSvc, jwtMiddleware)
+	vault.RegisterRoutes(app, &userRepo, &vaultRepo, &inviteRepo, emailClient, jwtMiddleware)
 
 	if err := app.Listen(":3000"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

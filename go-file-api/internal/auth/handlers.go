@@ -1,23 +1,26 @@
 package auth
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 
-	"go-file-api/internal/email"
 	"go-file-api/internal/invites"
 	"go-file-api/internal/jwt"
 	"go-file-api/internal/users"
 	"go-file-api/internal/vault"
+
+	"eddesten-mail/client"
+	"eddesten-mail/job"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func Register(userRepo *users.Repository, vaultRepo *vault.Repository, inviteRepo *invites.Repository, emailSvc email.EmailService, jwtService *jwt.JWTService) fiber.Handler {
+func Register(userRepo *users.Repository, vaultRepo *vault.Repository, inviteRepo *invites.Repository, emailClient *client.Client, jwtService *jwt.JWTService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
 
@@ -61,7 +64,8 @@ func Register(userRepo *users.Repository, vaultRepo *vault.Repository, inviteRep
 			}
 		}
 
-		go emailSvc.SendWelcome(ctx, body.Email)
+		data, _ := json.Marshal(job.WelcomeData{Email: body.Email})
+		emailClient.Enqueue(ctx, job.EmailJob{To: body.Email, Template: "welcome", TemplateData: data})
 
 		token, _ := jwtService.GenerateToken(userId, body.Email)
 
@@ -179,7 +183,7 @@ func ResetPassword(repo *users.Repository) fiber.Handler {
 	}
 }
 
-func SendResetPasswordEmail(repo *users.Repository, emailSvc email.EmailService) fiber.Handler {
+func SendResetPasswordEmail(repo *users.Repository, emailClient *client.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
 
@@ -202,7 +206,8 @@ func SendResetPasswordEmail(repo *users.Repository, emailSvc email.EmailService)
 			}
 			resetLink := fmt.Sprintf("%s/reset-password/%s", appURL, passwordReset.Token)
 
-			emailSvc.SendResetPassword(ctx, user.Email, resetLink)
+			data, _ := json.Marshal(job.ResetPasswordData{Email: user.Email, ResetURL: resetLink})
+			emailClient.Enqueue(ctx, job.EmailJob{To: user.Email, Template: "reset_password", TemplateData: data})
 		}
 
 		return c.SendStatus(fiber.StatusOK)

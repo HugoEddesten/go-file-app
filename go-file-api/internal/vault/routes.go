@@ -1,10 +1,10 @@
 package vault
 
 import (
-	"go-file-api/internal/email"
 	"go-file-api/internal/invites"
 	"go-file-api/internal/users"
 
+	"eddesten-mail/client"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -13,7 +13,7 @@ func RegisterRoutes(
 	userRepo *users.Repository,
 	vaultRepo *Repository,
 	inviteRepo *invites.Repository,
-	emailSvc email.EmailService,
+	emailClient *client.Client,
 	jwtMiddleware fiber.Handler,
 ) {
 	group := app.Group("/vault", jwtMiddleware)
@@ -22,7 +22,7 @@ func RegisterRoutes(
 	group.Post("create", CreateVault(vaultRepo))
 
 	group.Get("get-vault/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleViewer), GetVault(vaultRepo))
-	group.Post("assign-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), AssignUserToVault(vaultRepo, userRepo, inviteRepo, emailSvc))
+	group.Post("assign-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), AssignUserToVault(vaultRepo, userRepo, inviteRepo, emailClient))
 	group.Put("update-vault-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), UpdateVaultUser(vaultRepo))
 	group.Delete("remove-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), RemoveUserFromVault(vaultRepo))
 	group.Delete("remove-vault-user/:vaultId", VaultAccessMiddleware(vaultRepo, VaultRoleAdmin), RemoveVaultUser(vaultRepo))

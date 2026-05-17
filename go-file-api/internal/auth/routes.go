@@ -1,12 +1,12 @@
 package auth
 
 import (
-	"go-file-api/internal/email"
 	"go-file-api/internal/invites"
 	"go-file-api/internal/jwt"
 	"go-file-api/internal/users"
 	"go-file-api/internal/vault"
 
+	"eddesten-mail/client"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -15,11 +15,11 @@ func RegisterRoutes(
 	userRepo *users.Repository,
 	vaultRepo *vault.Repository,
 	inviteRepo *invites.Repository,
-	emailSvc email.EmailService,
+	emailClient *client.Client,
 	jwtService *jwt.JWTService,
 ) {
-	app.Post("/auth/register", Register(userRepo, vaultRepo, inviteRepo, emailSvc, jwtService))
-	app.Post("/auth/reset-password", SendResetPasswordEmail(userRepo, emailSvc))
+	app.Post("/auth/register", Register(userRepo, vaultRepo, inviteRepo, emailClient, jwtService))
+	app.Post("/auth/reset-password", SendResetPasswordEmail(userRepo, emailClient))
 	app.Post("/auth/reset-password/:token", ResetPassword(userRepo))
 	app.Post("/auth/login", Login(userRepo, jwtService))
 	app.Post("/auth/logout", Logout())

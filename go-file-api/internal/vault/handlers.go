@@ -1,15 +1,17 @@
 package vault
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 
-	"go-file-api/internal/email"
 	"go-file-api/internal/invites"
 	"go-file-api/internal/locals"
 	"go-file-api/internal/users"
 
+	"eddesten-mail/client"
+	"eddesten-mail/job"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -56,7 +58,7 @@ func CreateVault(vaultRepo *Repository) fiber.Handler {
 	}
 }
 
-func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository, inviteRepo *invites.Repository, emailSvc email.EmailService) fiber.Handler {
+func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository, inviteRepo *invites.Repository, emailClient *client.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
 		vaultId := locals.VaultId(c)
@@ -77,7 +79,8 @@ func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository, invit
 				return fiber.NewError(fiber.StatusInternalServerError)
 			}
 			vaultName, _ := vaultRepo.GetVaultName(ctx, vaultId)
-			go emailSvc.SendVaultAccessGranted(ctx, body.Email, vaultName)
+			data, _ := json.Marshal(job.VaultAccessGrantedData{VaultName: vaultName})
+			emailClient.Enqueue(ctx, job.EmailJob{To: body.Email, Template: "vault_access_granted", TemplateData: data})
 			return c.SendStatus(fiber.StatusCreated)
 		}
 
@@ -98,7 +101,8 @@ func AssignUserToVault(vaultRepo *Repository, usersRepo *users.Repository, invit
 				appURL = "http://localhost:5173"
 			}
 			inviteURL := fmt.Sprintf("%s/register/%s", appURL, inv.Token)
-			go emailSvc.SendVaultInvite(ctx, body.Email, vaultName, inviteURL)
+			data, _ := json.Marshal(job.VaultInviteData{VaultName: vaultName, InviteURL: inviteURL})
+			emailClient.Enqueue(ctx, job.EmailJob{To: body.Email, Template: "vault_invite", TemplateData: data})
 			return c.SendStatus(fiber.StatusCreated)
 		}
 
